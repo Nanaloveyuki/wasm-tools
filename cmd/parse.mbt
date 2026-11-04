@@ -22,33 +22,40 @@ pub async fn cmd_parse(args : Array[String]) -> Int raise @cli.CliError {
 }
 
 ///|
-/// 组件文本的顶层关键字是 `component`；core 文本是 `module` 或裸指令。
+/// 组件文本的顶层形式是 `(component ...)`，core 是 `(module ...)` 或裸指令。
+/// 只跳过空白和注释，不看文件扩展名。
 pub fn is_component_wat(text : String) -> Bool {
-  let mut index = 0
+  let index = skip_space_and_comments(text, 0)
+  if index >= text.length() {
+    return false
+  }
+  let mut cursor = index
+  match text.get_char(cursor) {
+    Some(c) =>
+      if c != '(' {
+        return false
+      }
+    None => return false
+  }
+  cursor = cursor + 1
+  let keyword = skip_space_and_comments(text, cursor)
+  match text.get_view(start=keyword) {
+    Some(view) => view.has_prefix("component")
+    None => false
+  }
+}
+
+///|
+/// 跳过空白、`;;` 行注释与 `(; ... ;)` 块注释；遇到其它字符返回当前位置。
+fn skip_space_and_comments(text : String, start : Int) -> Int {
+  let mut index = start
   while index < text.length() {
-    let ch = text.get_char(index)
-    match ch {
+    match text.get_char(index) {
       Some(c) => {
-        if c == '(' {
-          let mut probe = index + 1
-          while probe < text.length() {
-            match text.get_char(probe) {
-              Some(p) => {
-                if p == ' ' || p == '\n' || p == '\t' || p == '\r' {
-                  probe = probe + 1
-                  continue
-                }
-              }
-              None => break
-            }
-            let rest = text.get_view(start=probe)
-            match rest {
-              Some(view) => return view.has_prefix("component")
-              None => return false
-            }
-          }
-          return false
+        if c == ' ' || c == '\n' || c == '\t' || c == '\r' {
+          index = index + 1
         } else if c == ';' {
+          index = index + 1
           while index < text.length() {
             match text.get_char(index) {
               Some(inner) => {
@@ -60,14 +67,45 @@ pub fn is_component_wat(text : String) -> Bool {
               None => break
             }
           }
-        } else if c == ' ' || c == '\n' || c == '\t' || c == '\r' {
-          index = index + 1
+        } else if c == '(' {
+          match text.get_char(index + 1) {
+            Some(';') =>
+              match skip_block_comment(text, index + 2) {
+                Some(next) => index = next
+                None => return text.length()
+              }
+            _ => return index
+          }
         } else {
-          return false
+          return index
         }
       }
-      None => break
+      None => return index
     }
   }
-  false
+  index
+}
+
+///|
+/// 从 `(;` 之后开始跳过块注释（支持嵌套），返回结束位置。
+fn skip_block_comment(text : String, start : Int) -> Int? {
+  let mut depth = 1
+  let mut index = start
+  while index + 1 < text.length() {
+    match (text.get_char(index), text.get_char(index + 1)) {
+      (Some('('), Some(';')) => {
+        depth = depth + 1
+        index = index + 2
+      }
+      (Some(';'), Some(')')) => {
+        depth = depth - 1
+        index = index + 2
+        if depth == 0 {
+          return Some(index)
+        }
+      }
+      _ => index = index + 1
+    }
+  }
+  None
 }

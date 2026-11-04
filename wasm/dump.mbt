@@ -167,7 +167,7 @@ pub fn metadata_text(data : Bytes, json : Bool) -> String raise @cli.CliError {
   let views = custom_views(data, sections)
   let mut module_name : String? = None
   let mut function_count = 0
-  let mut producers : Array[ProducerField] = []
+  let mut producer_fields : Array[ProducerField] = []
   let names : Array[String] = []
   for view in views {
     names.push(view.name)
@@ -176,7 +176,7 @@ pub fn metadata_text(data : Bytes, json : Bool) -> String raise @cli.CliError {
         module_name = name_section_module(data, view)
         function_count = name_section_function_count(data, view)
       }
-      "producers" => producers = producers_from(data, view)
+      "producers" => producer_fields = producers(data, view)
       _ => ()
     }
   }
@@ -197,7 +197,7 @@ pub fn metadata_text(data : Bytes, json : Bool) -> String raise @cli.CliError {
     out.write_string(",\"function_names\":")
     out.write_string(function_count.to_string())
     out.write_string(",\"producers\":[")
-    for i, field in producers {
+    for i, field in producer_fields {
       if i > 0 {
         out.write_string(",")
       }
@@ -229,11 +229,11 @@ pub fn metadata_text(data : Bytes, json : Bool) -> String raise @cli.CliError {
     None => out.write_string("module name: (none)\n")
   }
   out.write_string("function names: " + function_count.to_string() + "\n")
-  if producers.is_empty() {
+  if producer_fields.is_empty() {
     out.write_string("producers: (none)\n")
   } else {
     out.write_string("producers:\n")
-    for field in producers {
+    for field in producer_fields {
       out.write_string("  " + field.name + ":\n")
       for entry in field.values {
         out.write_string("    " + entry.0 + " " + entry.1 + "\n")
@@ -241,26 +241,6 @@ pub fn metadata_text(data : Bytes, json : Bool) -> String raise @cli.CliError {
     }
   }
   out.to_string()
-}
-
-///|
-/// 兼容 `custom.mbt` 中的自由函数与结构体字段访问。
-fn producers_from(data : Bytes, view : CustomView) -> Array[ProducerField] raise @cli.CliError {
-  let result : Array[ProducerField] = []
-  let cursor : Ref[Int] = Ref(view.body)
-  let fields = read_leb(data, cursor)
-  for _ in 0..<fields {
-    let name = read_name_public(data, cursor)
-    let count = read_leb(data, cursor)
-    let values : Array[(String, String)] = []
-    for _ in 0..<count {
-      let key = read_name_public(data, cursor)
-      let version = read_name_public(data, cursor)
-      values.push((key, version))
-    }
-    result.push({ name, values })
-  }
-  result
 }
 
 ///|

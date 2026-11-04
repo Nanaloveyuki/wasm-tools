@@ -10,7 +10,7 @@ pub fn help_text() -> String {
     #|  print [FILE]           Convert binary to WAT (-o FILE to write)
     #|  parse [FILE]           Convert WAT to binary (-o FILE to write)
     #|  dump [FILE]            List sections (--instructions for offsets)
-    #|  strip [FILE]           Remove custom sections (-o FILE to write)
+    #|  strip [FILE]           Remove custom sections (--keep NAME to retain)
     #|  metadata [FILE]        Show name and producers sections
     #|  component wit [FILE]   Extract the WIT package from a component
     #|  help                   Show this message

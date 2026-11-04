@@ -29,32 +29,6 @@ pub fn custom_views(data : Bytes, sections : Array[Section]) -> Array[CustomView
 }
 
 ///|
-/// 读取一段无符号 LEB128；`raw` 内部的同名函数不对外暴露。
-pub fn read_leb(data : Bytes, cursor : Ref[Int]) -> Int raise @cli.CliError {
-  let mut result = 0
-  let mut shift = 0
-  let mut count = 0
-  while true {
-    let pos = cursor.val
-    if pos >= data.length() {
-      raise @cli.CliError::Invalid("truncated LEB128 at offset " + pos.to_string())
-    }
-    let byte = data[pos].to_int()
-    cursor.val = pos + 1
-    result = result | ((byte & 0x7f) << shift)
-    count = count + 1
-    if (byte & 0x80) == 0 {
-      break
-    }
-    if count >= 5 {
-      raise @cli.CliError::Invalid("LEB128 exceeds 32 bits at offset " + pos.to_string())
-    }
-    shift = shift + 7
-  }
-  result
-}
-
-///|
 pub fn read_name_public(data : Bytes, cursor : Ref[Int]) -> String raise @cli.CliError {
   let len = read_leb(data, cursor)
   let start = cursor.val

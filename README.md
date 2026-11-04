@@ -10,8 +10,9 @@ MoonBit 的 WebAssembly 二进制工具箱。把 `wasm_core`、`wasm_component`�
 # 已发布版本，无需安装
 moonx Nanaloveyuki/wasm-tools validate app.wasm
 
-# 或安装到 ~/.moon/bin/wsm
+# 或安装到 ~/.moon/bin/wasm-tools（wsm 是使用名/别名）
 moon install Nanaloveyuki/wasm-tools
+alias wsm=wasm-tools
 wsm validate app.wasm
 ```
 

@@ -43,7 +43,7 @@ pub fn Section::label(self : Section) -> String {
 }
 
 ///|
-fn read_u32(data : Bytes, cursor : Ref[Int]) -> Int raise @cli.CliError {
+pub fn read_leb(data : Bytes, cursor : Ref[Int]) -> Int raise @cli.CliError {
   let mut result = 0
   let mut shift = 0
   let mut count = 0
@@ -92,7 +92,7 @@ pub fn scan_sections(data : Bytes) -> Array[Section] raise @cli.CliError {
     let start = cursor.val
     let id = data[start].to_int()
     cursor.val = start + 1
-    let size = read_u32(data, cursor)
+    let size = read_leb(data, cursor)
     let payload = cursor.val
     if payload + size > data.length() {
       raise @cli.CliError::Invalid(
@@ -107,7 +107,7 @@ pub fn scan_sections(data : Bytes) -> Array[Section] raise @cli.CliError {
     }
     let name = if id == 0 {
       let name_cursor : Ref[Int] = Ref(payload)
-      let name_len = read_u32(data, name_cursor)
+      let name_len = read_leb(data, name_cursor)
       let name_start = name_cursor.val
       if name_start + name_len > payload + size {
         raise @cli.CliError::Invalid("custom section name overruns its payload")
