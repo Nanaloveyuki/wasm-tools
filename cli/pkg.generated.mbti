@@ -35,7 +35,6 @@ pub(all) suberror CliError {
 }
 pub fn CliError::exit_code(Self) -> Int32
 pub fn CliError::message(Self) -> String
-pub fn CliError::render(Self) -> String
 
 // Types and methods
 pub struct Options {

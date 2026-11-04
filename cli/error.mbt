@@ -24,8 +24,3 @@ pub fn CliError::exit_code(self : CliError) -> Int {
     Invalid(_) | Unsupported(_) => 1
   }
 }
-
-///|
-pub fn CliError::render(self : CliError) -> String {
-  TOOL_NAME + ": " + self.message() + "\n"
-}
