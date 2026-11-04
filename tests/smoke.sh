@@ -52,6 +52,9 @@ expect unknown-option 2 'unknown option: --nope' "$wsm" validate --nope fixtures
 expect strip-result 0 'custom sections: 0' "$wsm" metadata "$tmp/stripped.wasm"
 expect strip-valid 0 'valid core module' "$wsm" validate "$tmp/stripped.wasm"
 
+"$wsm" parse fixtures/component-comment.wat -o "$tmp/component-comment.wasm"
+expect component-comment 0 'valid component' "$wsm" validate "$tmp/component-comment.wasm"
+
 cat fixtures/hello.wat | "$wsm" parse - > "$tmp/piped.wasm"
 expect pipe-input 0 'valid core module' sh -c "'$wsm' validate - < '$tmp/piped.wasm'"
 
