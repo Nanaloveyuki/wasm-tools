@@ -58,6 +58,14 @@ MoonBit 的 wasm 积木已经相当完整：`wasm_core` 提供 core 规范模型
 - `--json` 只用于结构化报告命令（`dump`、`metadata`、后续 `size`），字段名一旦
   发布即视为稳定接口。
 
+### 已实现范围与限制
+
+- `dump`、`metadata` 只接受 core module；component 的 section id 空间不同，
+  在实现组件感知扫描前显式报 `Unsupported`（退出码 1），而不是输出错误的段名。
+- `strip` 对 core 和 component 都有效：它只按顶层 section 边界裁剪，不解释内容。
+- `parse` 用首个非注释 token 判断 `component`/`module`，不依赖文件扩展名。
+- 没有可移植 `isatty`，因此二进制输出不做 tty 保护，由调用方重定向。
+
 ### 非目标
 
 - `spawn`/`mutate`/`shrink`/`smith` 等测试生成类命令
