@@ -1,0 +1,85 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "Nanaloveyuki/wasm-tools/wasm"
+
+import {
+  "Nanaloveyuki/wasm-tools/cli",
+  "moonbitlang/core/ref",
+}
+
+// Values
+pub fn component_to_wat(Bytes) -> String raise @cli.CliError
+
+pub fn component_to_wit(Bytes) -> String raise @cli.CliError
+
+pub fn component_wat_to_binary(String) -> Bytes raise @cli.CliError
+
+pub fn core_to_wat(Bytes) -> String raise @cli.CliError
+
+pub fn custom_views(Bytes, Array[Section]) -> Array[CustomView] raise @cli.CliError
+
+pub fn detect_kind(Bytes) -> InputKind raise @cli.CliError
+
+pub fn dump_json(Bytes, Array[Section], Bool) -> String raise @cli.CliError
+
+pub fn dump_text(Bytes, Array[Section], Bool) -> String raise @cli.CliError
+
+pub fn metadata_text(Bytes, Bool) -> String raise @cli.CliError
+
+pub fn name_section_function_count(Bytes, CustomView) -> Int32 raise @cli.CliError
+
+pub fn name_section_module(Bytes, CustomView) -> String? raise @cli.CliError
+
+pub fn producers(Bytes, CustomView) -> Array[ProducerField] raise @cli.CliError
+
+pub fn read_leb(Bytes, @ref.Ref[Int32]) -> Int32 raise @cli.CliError
+
+pub fn read_name_public(Bytes, @ref.Ref[Int32]) -> String raise @cli.CliError
+
+pub fn rebuild(Bytes, Array[Bytes]) -> Bytes
+
+pub fn reject_component(Bytes, String) -> Unit raise @cli.CliError
+
+pub fn scan_sections(Bytes) -> Array[Section] raise @cli.CliError
+
+pub fn section_bytes(Bytes, Section) -> Bytes
+
+pub fn strip_custom_sections(Bytes, Array[Section], (String) -> Bool) -> Bytes
+
+pub fn validate_component(Bytes) -> Unit raise @cli.CliError
+
+pub fn validate_core(Bytes) -> Unit raise @cli.CliError
+
+pub fn wat_to_core(String) -> Bytes raise @cli.CliError
+
+// Errors
+
+// Types and methods
+pub struct CustomView {
+  name : String
+  body : Int32
+  end : Int32
+}
+
+pub enum InputKind {
+  CoreModule
+  Component
+}
+
+pub struct ProducerField {
+  name : String
+  values : Array[(String, String)]
+}
+
+pub struct Section {
+  id : Int32
+  start : Int32
+  payload : Int32
+  size : Int32
+  name : String?
+}
+pub fn Section::kind_name(Self) -> String
+pub fn Section::label(Self) -> String
+
+// Type aliases
+
+// Traits

@@ -1,0 +1,26 @@
+import {
+  "Nanaloveyuki/wasm-tools/cli" @cli,
+  "Milky2018/wasm_core/parser" @core_parser,
+  "Milky2018/wasm_core/wat" @core_wat,
+  "Milky2018/wasm_core/encoder" @core_encoder,
+  "Milky2018/wasm_core/validator" @core_validator,
+  "Milky2018/wasm_component" @component,
+  "Milky2018/wasm_component/validator" @component_validator,
+  "Milky2018/wasm_component/wit" @component_wit,
+  "moonrockz/wit/decompiler" @decompiler,
+  "moonrockz/wit/component_text" @component_text,
+  "moonbitlang/core/encoding/utf8",
+}
+
+import {
+  "Nanaloveyuki/wasm-tools/cli" @cli,
+} for "test"
+
+supported_targets = "native+wasm"
+
+options(
+  "allow-experimental-packages": [
+    "moonbitlang/core/async",
+    "moonbitlang/core/async/external_loop_integration",
+  ],
+)

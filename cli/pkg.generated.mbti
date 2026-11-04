@@ -1,0 +1,52 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "Nanaloveyuki/wasm-tools/cli"
+
+// Values
+pub const TOOL_NAME : String = "wsm"
+
+pub const VERSION : String = "0.1.0"
+
+pub fn help_text() -> String
+
+pub fn parse_options(Array[String], allow_json? : Bool, value_options? : Array[String]) -> Options raise CliError
+
+pub async fn read_input(String?) -> Bytes raise CliError
+
+pub fn reject_unknown(Options) -> Unit raise CliError
+
+pub fn take_flag(Options, String) -> Bool
+
+pub fn take_value(Options, String) -> Array[String] raise CliError
+
+pub async fn write_output(String?, Bytes) -> Unit raise CliError
+
+pub async fn write_stderr(String) -> Unit raise CliError
+
+pub async fn write_stderr_lossy(String) -> Unit
+
+pub async fn write_stdout(String) -> Unit raise CliError
+
+// Errors
+pub(all) suberror CliError {
+  Usage(String)
+  Io(String)
+  Invalid(String)
+  Unsupported(String)
+}
+pub fn CliError::exit_code(Self) -> Int32
+pub fn CliError::message(Self) -> String
+pub fn CliError::render(Self) -> String
+
+// Types and methods
+pub struct Options {
+  mut input : String?
+  mut output : String?
+  mut json : Bool
+  mut help : Bool
+  mut extra : Array[String]
+}
+pub fn Options::new() -> Self
+
+// Type aliases
+
+// Traits
