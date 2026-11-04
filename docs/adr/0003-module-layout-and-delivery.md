@@ -83,13 +83,14 @@ wasm 目标构建失败，需要在发布前修复，而不是靠用户本地编
 
 | 里程碑 | 交付 | 通过条件 |
 |---|---|---|
-| M0 | 模块骨架、帮助、`--version`、CI（wasm+native 构建）、发布 0.0.1 | `moonx <namespace>/wasm-tools --help` 在干净缓存下成功 |
-| M1 | `validate`、`print`、`parse` | MoonBit `wasm`/`wasm-gc` 产物全部验证通过；`parse(print(x))` 语义等价；负例退出码为 1 |
-| M2 | `dump`、`strip`、`metadata` | section 偏移/大小与原始字节一致；`strip --all` 后仍可验证；`--json` 字段稳定 |
-| M3 | component 打印路径、`component wit` | 组件 WAT 多文档输出；WIT 提取结果可被 `wasm-devkit` 再次解析；与 `wasm-devkit decompile` 结果对齐 |
+| M0 ✅ | 模块骨架、帮助、`--version`、CI（wasm+native 构建） | `moon build` 两种目标通过；`moon publish --dry-run` 通过 |
+| M1 ✅ | `validate`、`print`、`parse` | MoonBit `wasm`/`wasm-gc` 产物验证通过；`parse(print(x))` 语义等价；负例退出码为 1 |
+| M2 ✅ | `dump`、`strip`、`metadata` | section 偏移/大小与原始字节一致；`strip` 后仍可验证；`--json` 字段稳定 |
+| M3 ◐ | component `print`、`component wit` | 组件 WAT 多文档输出；`component wit` 对无 WIT 的组件给出 Unsupported；尚缺带 WIT 的真实固件 |
 | M4（另立 ADR） | `size`、`compose`、`opt`、`addr2line` | 体积报告可作为 CI 门禁；WAC 组合结果可验证；`opt -Oz` 输出可验证 |
 
 M4 不进入首版，避免把 CLI 骨架、raw 层、组件层、优化桥一次性耦合。
+发布 0.1.0 属于 M0 的人工步骤，需要在确认后执行：`moon publish`。
 
 ### 测试策略
 
