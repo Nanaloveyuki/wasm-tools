@@ -5,7 +5,7 @@ import {
   "moonbitlang/core/string" @str,
 }
 
-supported_targets = "native+wasm"
+supported_targets = "wasm"
 
 options(
   "allow-experimental-packages": [

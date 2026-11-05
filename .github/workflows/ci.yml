@@ -23,9 +23,6 @@ jobs:
       - name: Build wasm target
         run: moon build --target wasm --release
 
-      - name: Build native target
-        run: moon build --target native --release
-
       - name: Unit tests
         run: moon test
 

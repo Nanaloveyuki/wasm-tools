@@ -44,7 +44,7 @@ expect() {
   echo "ok   $name"
 }
 
-expect version 0 'wsm 0.4.0' --version
+expect version 0 'wsm 0.4.1' --version
 expect help 0 'Usage: wsm <COMMAND>' --help
 
 hello_win="$WIN_TMP/wsm-hello.wasm"

@@ -1,18 +1,20 @@
 # wasm-tools
 
 MoonBit 的 WebAssembly 二进制工具箱。把 `wasm_core`、`wasm_component`、
-`moonrockz/wit` 的能力组合成一个统一 CLI，可通过 `moonx` 直接运行，也可
-`moon install` 安装为本地命令。命令别名为 `wsm`。
+`moonrockz/wit`、`mizchi/mwac` 的能力组合成一个统一 CLI，通过 `moonx` 直接
+运行。命令别名为 `wsm`。
+
+模块只声明 wasm target：`compose` 依赖的 `mizchi/wit` 不能编译到 native，
+而 Mooncakes 的构建服务会先尝试 native。`moonx` 本来就是本工具的目标入口。
 
 ## 安装与运行
 
 ```sh
-# 已发布版本，无需安装
+# 无需安装，直接运行
 moonx Nanaloveyuki/wasm-tools validate app.wasm
 
-# 或安装到 ~/.moon/bin/wasm-tools（wsm 是使用名/别名）
-moon install Nanaloveyuki/wasm-tools
-alias wsm=wasm-tools
+# 想要短命令，可以自己包一层
+alias wsm='moonx Nanaloveyuki/wasm-tools'
 wsm validate app.wasm
 ```
 
@@ -86,8 +88,7 @@ cat app.wasm | wsm validate -
 
 ```sh
 moon build --target wasm       # 生成 _build/wasm/debug/build/wasm-tools.wasm
-moon build --target native     # 本地可执行文件
-moon test                      # 单元测试（raw 层）
+moon test                      # 单元测试
 ./tests/smoke.sh               # CLI 行为检查（Linux）
 tests/win-smoke.sh             # Windows 侧检查（WSL interop，需 WIN_MOONRUN/WIN_WASM_OPT）
 ```

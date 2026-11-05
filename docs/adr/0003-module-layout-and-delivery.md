@@ -72,8 +72,8 @@ supported_targets = "native+wasm"
 pkgtype(kind: "executable")
 ```
 
-根包可执行决定了 `moon install` 与 `moonx` 的名字都是模块最后一段 `wasm-tools`；
-`wsm` 是 usage/help 中的命令名，native 安装后可用 `alias wsm=wasm-tools`。
+根包可执行决定了 `moonx` 运行的是模块最后一段 `wasm-tools`；`wsm` 是 usage/help
+中的命令名。模块为 wasm-only，因此没有 native 安装产物。
 
 `moon publish` 之后必须确认 `build_status` 为 success，并实际执行
 `moonx <namespace>/wasm-tools --help`；如果资产缺失，说明根包不是可执行包或

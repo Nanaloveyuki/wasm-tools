@@ -21,7 +21,7 @@ import {
   "Nanaloveyuki/wasm-tools/cli" @cli,
 } for "test"
 
-supported_targets = "native+wasm"
+supported_targets = "wasm"
 
 options(
   "allow-experimental-packages": [

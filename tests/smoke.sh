@@ -30,7 +30,7 @@ expect() {
   echo "ok   $name"
 }
 
-expect version 0 'wsm 0.4.0' "$wsm" --version
+expect version 0 'wsm 0.4.1' "$wsm" --version
 expect help 0 'Usage: wsm <COMMAND>' "$wsm" --help
 
 "$wsm" parse fixtures/hello.wat -o "$tmp/hello.wasm"
