@@ -20,6 +20,9 @@ jobs:
         with:
           version: latest
 
+      - name: Update registry index
+        run: moon update
+
       - name: Build wasm target
         run: moon build --target wasm --release
 
