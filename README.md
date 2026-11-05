@@ -70,6 +70,15 @@ cat app.wasm | wsm validate -
 `dump`/`metadata` 对 component 使用独立的 section id 表；`size` 对 component
 只报告 section 明细，函数与调用图仅对 core module 有效。
 
+## 状态
+
+| 项目 | 值 |
+|---|---|
+| Mooncakes | `Nanaloveyuki/wasm-tools@0.4.2`（`build_status: success`） |
+| CI | GitHub Actions，Ubuntu / macOS / Windows 三平台 |
+| 测试 | 单元测试 + Linux CLI + Windows CLI（moonrun interop） |
+| 许可证 | Apache-2.0 |
+
 ## 路线
 
 | 版本 | 内容 |
