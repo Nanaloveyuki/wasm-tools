@@ -4,7 +4,7 @@ package "Nanaloveyuki/wasm-tools/cli"
 // Values
 pub const TOOL_NAME : String = "wsm"
 
-pub const VERSION : String = "0.2.0"
+pub const VERSION : String = "0.3.0"
 
 pub fn help_text() -> String
 
@@ -13,6 +13,8 @@ pub fn parse_options(Array[String], allow_json? : Bool, value_options? : Array[S
 pub async fn read_input(String?) -> Bytes raise CliError
 
 pub fn reject_unknown(Options) -> Unit raise CliError
+
+pub fn reject_unknown_extra(Array[String]) -> Unit raise CliError
 
 pub fn take_flag(Options, String) -> Bool
 

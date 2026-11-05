@@ -13,6 +13,7 @@ pub fn help_text() -> String {
     #|  strip [FILE]           Remove custom sections (--keep NAME to retain)
     #|  metadata [FILE]        Show name and producers sections
 #|  size [FILE]            Report section and function sizes
+#|  opt [FILE]             Optimize with moon-wasm-opt (-Oz, --passes)
     #|  component wit [FILE]   Extract the WIT package from a component
     #|  help                   Show this message
     #|

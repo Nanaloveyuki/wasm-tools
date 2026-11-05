@@ -47,7 +47,8 @@ MoonBit 的 wasm 积木已经相当完整：`wasm_core` 提供 core 规范模型
 | `dump [FILE]` | section 表；`--instructions` 追加指令 offset | 文本或 `--json` |
 | `strip [FILE]` | 删除 custom section；默认全部，支持 `--keep NAME` | 二进制到 stdout/`-o` |
 | `metadata [FILE]` | 展示 name section 与 producers section | 文本或 `--json` |
-| `size [FILE]` | section、函数体大小与直接调用边 | 文本或 `--json` |
+| `size [FILE]` | section、函数体大小、直接调用边；支持 `--diff`/`--budget` | 文本或 `--json` |
+| `opt [FILE]` | 调用 `moon-wasm-opt`，默认 `--all-features` | 二进制到 stdout/`-o` |
 | `component wit [FILE]` | 从 component 提取 WIT | stdout 或 `-o FILE` |
 
 通用约定：
@@ -74,7 +75,7 @@ MoonBit 的 wasm 积木已经相当完整：`wasm_core` 提供 core 规范模型
 - `component new`/`embed`：现有库没有 core module 到 component 的完整包装器，
   等真实需求出现再做
 - WIT/WAC 的 parse/verify/format：交给 `moonx moonrockz/wasm-devkit`
-- 优化 pass：交给 `moon-wasm-opt`
+- 优化 pass：交给 `moon-wasm-opt`；`opt` 只做子进程桥接
 - 运行时、JIT、解释器
 
 ## Consequences

@@ -2,7 +2,7 @@
 pub const TOOL_NAME : String = "wsm"
 
 ///|
-pub const VERSION : String = "0.2.0"
+pub const VERSION : String = "0.3.0"
 
 
 ///|

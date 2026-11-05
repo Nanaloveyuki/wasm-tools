@@ -10,6 +10,9 @@ import {
   "moonrockz/wit/decompiler" @decompiler,
   "moonrockz/wit/component_text" @component_text,
   "moonbitlang/core/encoding/utf8",
+  "moonbitlang/async/fs" @fs,
+  "moonbitlang/async/process" @process,
+  "moonbitlang/core/env" @env,
 }
 
 import {

@@ -26,7 +26,8 @@ wsm validate app.wasm
 | `dump [FILE]` | section 表；`--instructions` 追加逐指令 offset，`--json` 输出结构化结果 |
 | `strip [FILE]` | 删除 custom section；`--keep NAME` 保留指定段 |
 | `metadata [FILE]` | 展示 `name` 与 `producers` custom section |
-| `size [FILE]` | section、函数体大小与调用图；`--top N`、`--json` |
+| `size [FILE]` | section、函数体大小与调用图；`--top N`、`--diff FILE`、`--budget SIZE`、`--json` |
+| `opt [FILE]` | 调用 `moon-wasm-opt` 优化；`-O2`/`-Oz`、`--passes`、`--wasm-opt PATH` |
 | `component wit [FILE]` | 从 component 提取内嵌 WIT 包 |
 
 通用约定：
@@ -42,6 +43,10 @@ wsm print app.wasm -o app.wat
 wsm dump --instructions app.wasm | head
 wsm strip app.wasm --keep producers -o app.stripped.wasm
 wsm metadata --json app.wasm
+wsm size app.wasm --top 20
+wsm size app.wasm --diff old.wasm
+wsm size app.wasm --budget 200KB
+wsm opt app.wasm -Oz -o app.opt.wasm
 cat app.wasm | wsm validate -
 ```
 
@@ -53,7 +58,7 @@ cat app.wasm | wsm validate -
 - component 走 `Milky2018/wasm_component`（解析、验证、WIT）
 - component → WAT 走 `moonrockz/wit/decompiler`
 - WIT/WAC 的 parse/format/verify 交给 `moonx moonrockz/wasm-devkit`
-- 优化交给工具链自带的 `moon-wasm-opt`
+- 优化交给工具链自带的 `moon-wasm-opt`；`opt` 只做参数映射与产物校验，不实现 pass
 
 不做：运行时/JIT、优化 pass、WIT/WAC 语言工具、`smith`/`mutate`/`shrink`、
 `component new`/`embed`。设计理由见 [docs/adr](docs/adr/README.md)。
@@ -66,8 +71,8 @@ cat app.wasm | wsm validate -
 | 版本 | 内容 |
 |---|---|
 | 0.1.0 | validate / print / parse / dump / strip / metadata / component wit |
-| 0.2.0（当前） | component 感知的 dump/metadata；`size` v1（section、函数、调用图） |
-| 0.3.0 | `opt`（包装 `moon-wasm-opt`）；`size --diff`/`--budget` |
+| 0.2.0 | component 感知的 dump/metadata；`size` v1（section、函数、调用图） |
+| 0.3.0（当前） | `opt`（包装 `moon-wasm-opt`）；`size --diff`/`--budget` |
 | 0.4.0 | `compose`（WAC）；`addr2line`（依赖 spike 通过） |
 
 详细设计与验收见 [0004-post-0.1-roadmap](docs/adr/0004-post-0.1-roadmap.md)。
@@ -78,7 +83,8 @@ cat app.wasm | wsm validate -
 moon build --target wasm       # 生成 _build/wasm/debug/build/wasm-tools.wasm
 moon build --target native     # 本地可执行文件
 moon test                      # 单元测试（raw 层）
-./tests/smoke.sh               # CLI 行为检查，读取 tests/cli.md 的场景
+./tests/smoke.sh               # CLI 行为检查（Linux）
+tests/win-smoke.sh             # Windows 侧检查（WSL interop，需 WIN_MOONRUN/WIN_WASM_OPT）
 ```
 
 `./run.sh` 用本地 wasm 构建运行 CLI，`tests/smoke.sh` 依赖它。

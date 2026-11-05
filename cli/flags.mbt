@@ -1,4 +1,12 @@
 ///|
+/// 与 `reject_unknown` 相同，但直接接收剩余选项数组，便于子命令重组后再校验。
+pub fn reject_unknown_extra(extra : Array[String]) -> Unit raise CliError {
+  if extra.length() > 0 {
+    raise CliError::Usage("unknown option: " + extra[0])
+  }
+}
+
+///|
 /// 校验 `options.extra` 为空；各子命令在解析完自己的选项后调用。
 pub fn reject_unknown(options : Options) -> Unit raise CliError {
   if options.extra.length() > 0 {

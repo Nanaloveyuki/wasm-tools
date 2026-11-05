@@ -21,7 +21,7 @@
 | `Milky2018/wasm_component` | 0.18.0 | component 解析/验证、WIT 解析/编码/解码 | 提供 `decode_wit_package_from_component` 与 `format_package`，正是 `component wit` 需要的 |
 | `moonrockz/wit` | 0.3.0 | **仅** `decompiler`：二进制转 WAT（core + component） | 反编译输出带 offset 的多文档 WAT；index 中 `wasm-devkit` 依赖它 |
 | `mizchi/mwac` | 0.2.2 | WAC 组合（后续 `compose` 命令） | 解析 `package ... new ... export` 语法并直接产出 component 二进制 |
-| `moonbitlang/async` | 0.22.7 | 文件、stdio | `fs`/`stdio` 支持 wasm；进程留给后续 `opt` 命令 |
+| `moonbitlang/async` | 0.22.7 | 文件、stdio、进程 | `fs`/`stdio`/`process` 支持 wasm；`opt` 用 `process` 调用 `moon-wasm-opt` |
 
 依赖版本全部固定，升级必须重新跑 ADR 末尾的验证清单。
 

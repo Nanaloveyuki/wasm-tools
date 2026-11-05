@@ -229,3 +229,196 @@ pub fn size_json(report : SizeReport) -> String {
   out.write_string("}}")
   out.to_string()
 }
+
+///|
+pub struct FunctionDelta {
+  key : String
+  name : String
+  before : Int
+  after : Int
+  status : String
+}
+
+///|
+pub struct SizeDiff {
+  file : String
+  baseline : String
+  before_total : Int
+  after_total : Int
+  changes : Array[FunctionDelta]
+}
+
+///|
+/// 函数按 name 匹配；没有名字时退回 `#index`。索引在两次构建间会漂移，
+/// 名字匹配能避免把一次重排误报成大量增删。
+fn function_key(function_ : FunctionSize) -> String {
+  if function_.name.is_empty() {
+    "#" + function_.index.to_string()
+  } else {
+    function_.name
+  }
+}
+
+///|
+fn function_map(report : SizeReport) -> Map[String, FunctionSize] {
+  let map : Map[String, FunctionSize] = Map([])
+  for function_ in report.functions {
+    let key = function_key(function_)
+    if !map.contains(key) {
+      map.set(key, function_)
+    }
+  }
+  map
+}
+
+///|
+pub fn size_diff(current : SizeReport, baseline : SizeReport) -> SizeDiff {
+  let before = function_map(baseline)
+  let after = function_map(current)
+  let changes : Array[FunctionDelta] = []
+  for key, function_ in after {
+    match before.get(key) {
+      Some(old) => {
+        if old.bytes != function_.bytes {
+          changes.push({
+            key,
+            name: function_.name,
+            before: old.bytes,
+            after: function_.bytes,
+            status: "changed",
+          })
+        }
+      }
+      None =>
+        changes.push({
+          key,
+          name: function_.name,
+          before: 0,
+          after: function_.bytes,
+          status: "added",
+        })
+    }
+  }
+  for key, function_ in before {
+    if !after.contains(key) {
+      changes.push({
+        key,
+        name: function_.name,
+        before: function_.bytes,
+        after: 0,
+        status: "removed",
+      })
+    }
+  }
+  changes.sort_by(fn(left, right) {
+    let left_delta = delta_of(left)
+    let right_delta = delta_of(right)
+    if left_delta != right_delta {
+      right_delta - left_delta
+    } else {
+      left.key.compare(right.key)
+    }
+  })
+  {
+    file: current.file,
+    baseline: baseline.file,
+    before_total: baseline.total,
+    after_total: current.total,
+    changes,
+  }
+}
+
+///|
+fn delta_of(change : FunctionDelta) -> Int {
+  change.after - change.before
+}
+
+///|
+pub fn diff_text(diff : SizeDiff, top : Int) -> String {
+  let out = StringBuilder()
+  let total_delta = diff.after_total - diff.before_total
+  out.write_string("file " + diff.file + "\n")
+  out.write_string("baseline " + diff.baseline + "\n")
+  out.write_string(
+    "total " +
+    diff.before_total.to_string() +
+    " -> " +
+    diff.after_total.to_string() +
+    " (" +
+    signed(total_delta) +
+    ")\n",
+  )
+  if diff.changes.is_empty() {
+    out.write_string("\nno function size changes\n")
+    return out.to_string()
+  }
+  let shown = if top <= 0 || top > diff.changes.length() {
+    diff.changes.length()
+  } else {
+    top
+  }
+  out.write_string("\nfunctions (top " + shown.to_string() + " of " + diff.changes.length().to_string() + ")\n")
+  for i = 0; i < shown; i = i + 1 {
+    let change = diff.changes[i]
+    let name = if change.name.is_empty() { change.key } else { change.name }
+    out.write_string(
+      "  " +
+      pad_right(change.status, 8) +
+      "  " +
+      pad_right(name, 32) +
+      "  " +
+      pad_left(signed(delta_of(change)), 9) +
+      " B  (" +
+      change.before.to_string() +
+      " -> " +
+      change.after.to_string() +
+      ")\n",
+    )
+  }
+  out.to_string()
+}
+
+///|
+pub fn diff_json(diff : SizeDiff) -> String {
+  let out = StringBuilder()
+  out.write_string("{\"file\":")
+  out.write_string(json_string(diff.file))
+  out.write_string(",\"baseline\":")
+  out.write_string(json_string(diff.baseline))
+  out.write_string(",\"before_total\":")
+  out.write_string(diff.before_total.to_string())
+  out.write_string(",\"after_total\":")
+  out.write_string(diff.after_total.to_string())
+  out.write_string(",\"total_delta\":")
+  out.write_string((diff.after_total - diff.before_total).to_string())
+  out.write_string(",\"functions\":[")
+  for i, change in diff.changes {
+    if i > 0 {
+      out.write_string(",")
+    }
+    out.write_string("{\"key\":")
+    out.write_string(json_string(change.key))
+    out.write_string(",\"name\":")
+    out.write_string(json_string(change.name))
+    out.write_string(",\"before\":")
+    out.write_string(change.before.to_string())
+    out.write_string(",\"after\":")
+    out.write_string(change.after.to_string())
+    out.write_string(",\"delta\":")
+    out.write_string(delta_of(change).to_string())
+    out.write_string(",\"status\":")
+    out.write_string(json_string(change.status))
+    out.write_string("}")
+  }
+  out.write_string("]}")
+  out.to_string()
+}
+
+///|
+fn signed(value : Int) -> String {
+  if value > 0 {
+    "+" + value.to_string()
+  } else {
+    value.to_string()
+  }
+}

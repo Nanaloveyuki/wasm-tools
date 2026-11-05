@@ -30,7 +30,7 @@ expect() {
   echo "ok   $name"
 }
 
-expect version 0 'wsm 0.2.0' "$wsm" --version
+expect version 0 'wsm 0.3.0' "$wsm" --version
 expect help 0 'Usage: wsm <COMMAND>' "$wsm" --help
 
 "$wsm" parse fixtures/hello.wat -o "$tmp/hello.wasm"
@@ -39,6 +39,10 @@ expect print-core 0 '(module' "$wsm" print "$tmp/hello.wasm"
 expect dump-core 0 'code' "$wsm" dump "$tmp/hello.wasm"
 expect size-core 0 'call graph' "$wsm" size "$tmp/hello.wasm"
 expect size-json 0 '"functions"' "$wsm" size --json "$tmp/hello.wasm"
+expect size-budget-pass 0 'total 74 B' "$wsm" size --budget 1KB "$tmp/hello.wasm"
+expect size-budget-fail 1 'exceeds budget' "$wsm" size --budget 10B "$tmp/hello.wasm"
+expect size-diff 0 'no function size changes' "$wsm" size --diff "$tmp/hello.wasm" "$tmp/hello.wasm"
+expect opt 0 'valid core module' sh -c "'$wsm' opt '$tmp/hello.wasm' -o '$tmp/hello.opt.wasm' && '$wsm' validate '$tmp/hello.opt.wasm'"
 expect metadata-core 0 'custom sections: 1' "$wsm" metadata "$tmp/hello.wasm"
 
 "$wsm" parse fixtures/component.wat -o "$tmp/component.wasm"

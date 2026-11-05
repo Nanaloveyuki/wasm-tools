@@ -19,9 +19,15 @@ pub fn custom_views(Bytes, Array[Section]) -> Array[CustomView] raise @cli.CliEr
 
 pub fn detect_kind(Bytes) -> InputKind raise @cli.CliError
 
+pub fn diff_json(SizeDiff) -> String
+
+pub fn diff_text(SizeDiff, Int32) -> String
+
 pub fn dump_json(Bytes, Array[Section], InputKind, Bool) -> String raise @cli.CliError
 
 pub fn dump_text(Bytes, Array[Section], InputKind, Bool) -> String raise @cli.CliError
+
+pub async fn find_optimizer(String?) -> String raise @cli.CliError
 
 pub fn metadata_text(Bytes, InputKind, Bool) -> String raise @cli.CliError
 
@@ -39,11 +45,15 @@ pub fn rebuild(Bytes, Array[Bytes]) -> Bytes
 
 pub fn reject_component(Bytes, String) -> Unit raise @cli.CliError
 
+pub async fn run_optimizer(Optimizer, Bytes, String, Array[String]) -> Bytes raise @cli.CliError
+
 pub fn scan_sections(Bytes) -> Array[Section] raise @cli.CliError
 
 pub fn section_bytes(Bytes, Section) -> Bytes
 
 pub fn section_name(InputKind, Int32) -> String
+
+pub fn size_diff(SizeReport, SizeReport) -> SizeDiff
 
 pub fn size_json(SizeReport) -> String
 
@@ -68,6 +78,14 @@ pub struct CustomView {
   end : Int32
 }
 
+pub struct FunctionDelta {
+  key : String
+  name : String
+  before : Int32
+  after : Int32
+  status : String
+}
+
 pub struct FunctionSize {
   index : Int32
   name : String
@@ -79,6 +97,11 @@ pub enum InputKind {
   Component
 }
 pub fn InputKind::is_component(Self) -> Bool
+
+pub(all) struct Optimizer {
+  mut path : String
+}
+pub fn Optimizer::new(String) -> Self
 
 pub struct ProducerField {
   name : String
@@ -93,6 +116,14 @@ pub struct Section {
   name : String?
 }
 pub fn Section::label(Self, InputKind) -> String
+
+pub struct SizeDiff {
+  file : String
+  baseline : String
+  before_total : Int32
+  after_total : Int32
+  changes : Array[FunctionDelta]
+}
 
 pub struct SizeReport {
   file : String

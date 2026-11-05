@@ -27,3 +27,38 @@ test "component size reports sections without functions" {
   inspect(report.functions.length(), content="0")
   inspect(report.sections.length() > 0, content="true")
 }
+
+///|
+test "size_diff classifies added, removed and changed functions" {
+  let base = size_report(
+    wat_to_core("(module (func $a (result i32) i32.const 1) (export \"a\" (func $a)))") catch {
+      _ => fail("parse failed")
+    },
+    "base.wasm",
+  ) catch {
+    _ => fail("size failed")
+  }
+  let current = size_report(
+    wat_to_core(
+      "(module (func $a (result i32) i32.const 1 i32.const 2 i32.add) (export \"a\" (func $a)) (func $b (result i32) i32.const 3) (export \"b\" (func $b)))",
+    ) catch {
+      _ => fail("parse failed")
+    },
+    "current.wasm",
+  ) catch {
+    _ => fail("size failed")
+  }
+  let diff = size_diff(current, base)
+  let mut added = 0
+  let mut changed = 0
+  for change in diff.changes {
+    if change.status == "added" {
+      added = added + 1
+    } else if change.status == "changed" {
+      changed = changed + 1
+    }
+  }
+  inspect(added, content="1")
+  inspect(changed, content="1")
+  inspect(diff.after_total > diff.before_total, content="true")
+}

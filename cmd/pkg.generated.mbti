@@ -12,6 +12,8 @@ pub async fn cmd_dump(Array[String]) -> Int32 raise @cli.CliError
 
 pub async fn cmd_metadata(Array[String]) -> Int32 raise @cli.CliError
 
+pub async fn cmd_opt(Array[String]) -> Int32 raise @cli.CliError
+
 pub async fn cmd_parse(Array[String]) -> Int32 raise @cli.CliError
 
 pub async fn cmd_print(Array[String]) -> Int32 raise @cli.CliError
