@@ -2,6 +2,7 @@ import {
   "Nanaloveyuki/wasm-tools/cli" @cli,
   "Nanaloveyuki/wasm-tools/wasm" @wasm,
   "moonbitlang/core/encoding/utf8",
+  "moonbitlang/core/string" @str,
 }
 
 supported_targets = "native+wasm"

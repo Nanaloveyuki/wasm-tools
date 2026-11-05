@@ -16,6 +16,8 @@ pub async fn cmd_parse(Array[String]) -> Int32 raise @cli.CliError
 
 pub async fn cmd_print(Array[String]) -> Int32 raise @cli.CliError
 
+pub async fn cmd_size(Array[String]) -> Int32 raise @cli.CliError
+
 pub async fn cmd_strip(Array[String]) -> Int32 raise @cli.CliError
 
 pub async fn cmd_validate(Array[String]) -> Int32 raise @cli.CliError

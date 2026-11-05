@@ -10,12 +10,12 @@ pub async fn cmd_dump(args : Array[String]) -> Int raise @cli.CliError {
     return 0
   }
   let data = @cli.read_input(options.input)
-  @wasm.reject_component(data, "dump")
+  let kind = @wasm.detect_kind(data)
   let sections = @wasm.scan_sections(data)
   let text = if options.json {
-    @wasm.dump_json(data, sections, instructions)
+    @wasm.dump_json(data, sections, kind, instructions)
   } else {
-    @wasm.dump_text(data, sections, instructions)
+    @wasm.dump_text(data, sections, kind, instructions)
   }
   match options.output {
     None => @cli.write_stdout(text)

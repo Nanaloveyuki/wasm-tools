@@ -3,10 +3,12 @@
 pub fn dump_text(
   data : Bytes,
   sections : Array[Section],
+  kind : InputKind,
   instructions : Bool,
 ) -> String raise @cli.CliError {
   let out = StringBuilder()
-  out.write_string("module " + data.length().to_string() + " bytes\n")
+  let subject = if kind.is_component() { "component" } else { "module" }
+  out.write_string(subject + " " + data.length().to_string() + " bytes\n")
   out.write_string("offset  end     size    section\n")
   for section in sections {
     let size = section.size
@@ -17,7 +19,7 @@ pub fn dump_text(
       "  " +
       pad_left(size.to_string(), 6) +
       "  " +
-      section.label() +
+      section.label(kind) +
       "\n",
     )
   }
@@ -32,6 +34,7 @@ pub fn dump_text(
 pub fn dump_json(
   data : Bytes,
   sections : Array[Section],
+  kind : InputKind,
   instructions : Bool,
 ) -> String raise @cli.CliError {
   let out = StringBuilder()
@@ -47,7 +50,7 @@ pub fn dump_json(
     out.write_string("{\"id\":")
     out.write_string(section.id.to_string())
     out.write_string(",\"kind\":")
-    out.write_string(json_string(section.kind_name()))
+    out.write_string(json_string(section_name(kind, section.id)))
     match section.name {
       Some(name) => {
         out.write_string(",\"name\":")
@@ -162,7 +165,7 @@ fn instructions_json(data : Bytes) -> String raise @cli.CliError {
 }
 
 ///|
-pub fn metadata_text(data : Bytes, json : Bool) -> String raise @cli.CliError {
+pub fn metadata_text(data : Bytes, kind : InputKind, json : Bool) -> String raise @cli.CliError {
   let sections = scan_sections(data)
   let views = custom_views(data, sections)
   let mut module_name : String? = None
@@ -224,11 +227,14 @@ pub fn metadata_text(data : Bytes, json : Bool) -> String raise @cli.CliError {
   for view in views {
     out.write_string("  " + view.name + "\n")
   }
+  let subject = if kind.is_component() { "component" } else { "module" }
   match module_name {
-    Some(value) => out.write_string("module name: " + value + "\n")
-    None => out.write_string("module name: (none)\n")
+    Some(value) => out.write_string(subject + " name: " + value + "\n")
+    None => out.write_string(subject + " name: (none)\n")
   }
-  out.write_string("function names: " + function_count.to_string() + "\n")
+  if !kind.is_component() {
+    out.write_string("function names: " + function_count.to_string() + "\n")
+  }
   if producer_fields.is_empty() {
     out.write_string("producers: (none)\n")
   } else {
@@ -298,16 +304,4 @@ fn concise_instruction(text : String) -> String {
     }
     _ => text
   }
-}
-
-///|
-fn pad_left(value : String, width : Int) -> String {
-  let out = StringBuilder()
-  let mut pad = width - value.length()
-  while pad > 0 {
-    out.write_char(' ')
-    pad = pad - 1
-  }
-  out.write_string(value)
-  out.to_string()
 }

@@ -26,6 +26,7 @@ wsm validate app.wasm
 | `dump [FILE]` | section 表；`--instructions` 追加逐指令 offset，`--json` 输出结构化结果 |
 | `strip [FILE]` | 删除 custom section；`--keep NAME` 保留指定段 |
 | `metadata [FILE]` | 展示 `name` 与 `producers` custom section |
+| `size [FILE]` | section、函数体大小与调用图；`--top N`、`--json` |
 | `component wit [FILE]` | 从 component 提取内嵌 WIT 包 |
 
 通用约定：
@@ -57,15 +58,15 @@ cat app.wasm | wsm validate -
 不做：运行时/JIT、优化 pass、WIT/WAC 语言工具、`smith`/`mutate`/`shrink`、
 `component new`/`embed`。设计理由见 [docs/adr](docs/adr/README.md)。
 
-`dump` 与 `metadata` 目前拒绝 component 二进制，因为组件的 section id 空间与
-core 不同；需要组件结构时用 `print`（多文档 WAT）或 `component wit`。
+`dump`/`metadata` 对 component 使用独立的 section id 表；`size` 对 component
+只报告 section 明细，函数与调用图仅对 core module 有效。
 
 ## 路线
 
 | 版本 | 内容 |
 |---|---|
-| 0.1.0（当前） | validate / print / parse / dump / strip / metadata / component wit |
-| 0.2.0 | component 感知的 dump/metadata；`size` v1（section、函数、调用图） |
+| 0.1.0 | validate / print / parse / dump / strip / metadata / component wit |
+| 0.2.0（当前） | component 感知的 dump/metadata；`size` v1（section、函数、调用图） |
 | 0.3.0 | `opt`（包装 `moon-wasm-opt`）；`size --diff`/`--budget` |
 | 0.4.0 | `compose`（WAC）；`addr2line`（依赖 spike 通过） |
 

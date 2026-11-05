@@ -9,8 +9,8 @@ pub async fn cmd_metadata(args : Array[String]) -> Int raise @cli.CliError {
     return 0
   }
   let data = @cli.read_input(options.input)
-  @wasm.reject_component(data, "metadata")
-  let text = @wasm.metadata_text(data, options.json)
+  let kind = @wasm.detect_kind(data)
+  let text = @wasm.metadata_text(data, kind, options.json)
   match options.output {
     None => @cli.write_stdout(text)
     Some(_) => @cli.write_output(options.output, @utf8.encode(text))

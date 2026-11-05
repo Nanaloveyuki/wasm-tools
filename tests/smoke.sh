@@ -30,18 +30,23 @@ expect() {
   echo "ok   $name"
 }
 
-expect version 0 'wsm 0.1.0' "$wsm" --version
+expect version 0 'wsm 0.2.0' "$wsm" --version
 expect help 0 'Usage: wsm <COMMAND>' "$wsm" --help
 
 "$wsm" parse fixtures/hello.wat -o "$tmp/hello.wasm"
 expect validate-core 0 'valid core module (74 bytes)' "$wsm" validate "$tmp/hello.wasm"
 expect print-core 0 '(module' "$wsm" print "$tmp/hello.wasm"
 expect dump-core 0 'code' "$wsm" dump "$tmp/hello.wasm"
+expect size-core 0 'call graph' "$wsm" size "$tmp/hello.wasm"
+expect size-json 0 '"functions"' "$wsm" size --json "$tmp/hello.wasm"
 expect metadata-core 0 'custom sections: 1' "$wsm" metadata "$tmp/hello.wasm"
 
 "$wsm" parse fixtures/component.wat -o "$tmp/component.wasm"
 expect validate-component 0 'valid component (102 bytes)' "$wsm" validate "$tmp/component.wasm"
 expect print-component 0 '; ---- root ----' "$wsm" print "$tmp/component.wasm"
+expect dump-component 0 'core-module' "$wsm" dump "$tmp/component.wasm"
+expect metadata-component 0 'component name' "$wsm" metadata "$tmp/component.wasm"
+expect size-component 0 'core-module' "$wsm" size "$tmp/component.wasm"
 
 expect bad-magic 1 'missing wasm magic header' "$wsm" validate fixtures/not-wasm.wasm
 expect truncated 1 'length out of bounds' "$wsm" validate fixtures/truncated.wasm

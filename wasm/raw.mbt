@@ -14,31 +14,12 @@ pub struct Section {
 }
 
 ///|
-pub fn Section::kind_name(self : Section) -> String {
-  match self.id {
-    0 => "custom"
-    1 => "type"
-    2 => "import"
-    3 => "function"
-    4 => "table"
-    5 => "memory"
-    6 => "global"
-    7 => "export"
-    8 => "start"
-    9 => "element"
-    10 => "code"
-    11 => "data"
-    12 => "data-count"
-    13 => "tag"
-    _ => "unknown(" + self.id.to_string() + ")"
-  }
-}
-
-///|
-pub fn Section::label(self : Section) -> String {
+/// core 与 component 的 section id 空间不同，标签必须由调用方给出类型。
+pub fn Section::label(self : Section, kind : InputKind) -> String {
+  let base = section_name(kind, self.id)
   match self.name {
-    Some(name) => self.kind_name() + " \"" + name + "\""
-    None => self.kind_name()
+    Some(name) => base + " \"" + name + "\""
+    None => base
   }
 }
 

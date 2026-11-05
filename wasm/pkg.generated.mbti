@@ -19,11 +19,11 @@ pub fn custom_views(Bytes, Array[Section]) -> Array[CustomView] raise @cli.CliEr
 
 pub fn detect_kind(Bytes) -> InputKind raise @cli.CliError
 
-pub fn dump_json(Bytes, Array[Section], Bool) -> String raise @cli.CliError
+pub fn dump_json(Bytes, Array[Section], InputKind, Bool) -> String raise @cli.CliError
 
-pub fn dump_text(Bytes, Array[Section], Bool) -> String raise @cli.CliError
+pub fn dump_text(Bytes, Array[Section], InputKind, Bool) -> String raise @cli.CliError
 
-pub fn metadata_text(Bytes, Bool) -> String raise @cli.CliError
+pub fn metadata_text(Bytes, InputKind, Bool) -> String raise @cli.CliError
 
 pub fn name_section_function_count(Bytes, CustomView) -> Int32 raise @cli.CliError
 
@@ -43,6 +43,14 @@ pub fn scan_sections(Bytes) -> Array[Section] raise @cli.CliError
 
 pub fn section_bytes(Bytes, Section) -> Bytes
 
+pub fn section_name(InputKind, Int32) -> String
+
+pub fn size_json(SizeReport) -> String
+
+pub fn size_report(Bytes, String) -> SizeReport raise @cli.CliError
+
+pub fn size_text(SizeReport, Int32) -> String
+
 pub fn strip_custom_sections(Bytes, Array[Section], (String) -> Bool) -> Bytes
 
 pub fn validate_component(Bytes) -> Unit raise @cli.CliError
@@ -60,10 +68,17 @@ pub struct CustomView {
   end : Int32
 }
 
+pub struct FunctionSize {
+  index : Int32
+  name : String
+  bytes : Int32
+}
+
 pub enum InputKind {
   CoreModule
   Component
 }
+pub fn InputKind::is_component(Self) -> Bool
 
 pub struct ProducerField {
   name : String
@@ -77,8 +92,25 @@ pub struct Section {
   size : Int32
   name : String?
 }
-pub fn Section::kind_name(Self) -> String
-pub fn Section::label(Self) -> String
+pub fn Section::label(Self, InputKind) -> String
+
+pub struct SizeReport {
+  file : String
+  total : Int32
+  header : Int32
+  sections : Array[SizeSection]
+  imported_functions : Int32
+  functions : Array[FunctionSize]
+  call_edges : Int32
+  indirect_calls : Int32
+}
+
+pub struct SizeSection {
+  label : String
+  payload : Int32
+  total : Int32
+  percent : Double
+}
 
 // Type aliases
 

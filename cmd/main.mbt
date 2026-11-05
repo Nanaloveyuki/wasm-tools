@@ -49,6 +49,7 @@ async fn dispatch(command : String, args : Array[String]) -> Int raise @cli.CliE
     "dump" => cmd_dump(args)
     "strip" => cmd_strip(args)
     "metadata" => cmd_metadata(args)
+    "size" => cmd_size(args)
     "component" => cmd_component(args)
     _ => {
       raise @cli.CliError::Usage("unknown command: " + command)

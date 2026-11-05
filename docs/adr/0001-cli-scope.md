@@ -47,6 +47,7 @@ MoonBit 的 wasm 积木已经相当完整：`wasm_core` 提供 core 规范模型
 | `dump [FILE]` | section 表；`--instructions` 追加指令 offset | 文本或 `--json` |
 | `strip [FILE]` | 删除 custom section；默认全部，支持 `--keep NAME` | 二进制到 stdout/`-o` |
 | `metadata [FILE]` | 展示 name section 与 producers section | 文本或 `--json` |
+| `size [FILE]` | section、函数体大小与直接调用边 | 文本或 `--json` |
 | `component wit [FILE]` | 从 component 提取 WIT | stdout 或 `-o FILE` |
 
 通用约定：
@@ -60,8 +61,8 @@ MoonBit 的 wasm 积木已经相当完整：`wasm_core` 提供 core 规范模型
 
 ### 已实现范围与限制
 
-- `dump`、`metadata` 只接受 core module；component 的 section id 空间不同，
-  在实现组件感知扫描前显式报 `Unsupported`（退出码 1），而不是输出错误的段名。
+- `dump`、`metadata` 按 core/component 各自的 section id 表输出，不再拒绝组件。
+- `size` 对 component 只输出 section 明细；函数体与调用图仅适用于 core module。
 - `strip` 对 core 和 component 都有效：它只按顶层 section 边界裁剪，不解释内容。
 - `parse` 用首个非注释 token 判断 `component`/`module`，不依赖文件扩展名。
 - 没有可移植 `isatty`，因此二进制输出不做 tty 保护，由调用方重定向。
