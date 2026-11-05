@@ -60,6 +60,17 @@ cat app.wasm | wsm validate -
 `dump` 与 `metadata` 目前拒绝 component 二进制，因为组件的 section id 空间与
 core 不同；需要组件结构时用 `print`（多文档 WAT）或 `component wit`。
 
+## 路线
+
+| 版本 | 内容 |
+|---|---|
+| 0.1.0（当前） | validate / print / parse / dump / strip / metadata / component wit |
+| 0.2.0 | component 感知的 dump/metadata；`size` v1（section、函数、调用图） |
+| 0.3.0 | `opt`（包装 `moon-wasm-opt`）；`size --diff`/`--budget` |
+| 0.4.0 | `compose`（WAC）；`addr2line`（依赖 spike 通过） |
+
+详细设计与验收见 [0004-post-0.1-roadmap](docs/adr/0004-post-0.1-roadmap.md)。
+
 ## 开发
 
 ```sh

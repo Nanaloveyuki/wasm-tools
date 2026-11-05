@@ -8,6 +8,7 @@
 | [0001](0001-cli-scope.md) | CLI 定位、首版命令面与非目标 |
 | [0002](0002-dependency-selection.md) | 依赖选择、实测边界与上游协作 |
 | [0003](0003-module-layout-and-delivery.md) | 模块布局、moonx 发布约束与交付顺序 |
+| [0004](0004-post-0.1-roadmap.md) | 0.2.0–0.4.0：component 结构、size、opt、compose、addr2line |
 
 ## 写法
 
