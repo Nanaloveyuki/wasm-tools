@@ -108,3 +108,30 @@ pub fn producers(data : Bytes, view : CustomView) -> Array[ProducerField] raise 
   }
   result
 }
+
+///|
+/// `name` section 的函数名表（subsection 1）。索引是绝对函数索引。
+pub fn function_names(data : Bytes, view : CustomView) -> Map[Int, String] raise @cli.CliError {
+  let names : Map[Int, String] = Map([])
+  let cursor : Ref[Int] = Ref(view.body)
+  while cursor.val < view.end {
+    let id = read_leb(data, cursor)
+    let size = read_leb(data, cursor)
+    let start = cursor.val
+    if start + size > view.end {
+      raise @cli.CliError::Invalid("name section subsection overruns its payload")
+    }
+    if id == 1 {
+      let inner : Ref[Int] = Ref(start)
+      let count = read_leb(data, inner)
+      for _ in 0..<count {
+        let index = read_leb(data, inner)
+        let name = read_name_public(data, inner)
+        names.set(index, name)
+      }
+      return names
+    }
+    cursor.val = start + size
+  }
+  names
+}

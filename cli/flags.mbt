@@ -60,3 +60,15 @@ pub fn take_flag(options : Options, name : String) -> Bool {
   options.extra = rest
   found
 }
+
+///|
+/// 返回去掉首元素后的新数组；用于把位置参数从 `options.extra` 中取走。
+pub fn without_first(values : Array[String]) -> Array[String] {
+  let rest : Array[String] = []
+  for i, value in values {
+    if i > 0 {
+      rest.push(value)
+    }
+  }
+  rest
+}

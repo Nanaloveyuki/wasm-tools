@@ -422,3 +422,54 @@ fn signed(value : Int) -> String {
     value.to_string()
   }
 }
+
+///|
+pub struct FunctionLayout {
+  /// 函数体第一条指令的绝对文件 offset（跳过 size 前缀与 locals 声明）
+  start : Int
+  /// 函数体字节数（locals + 表达式）
+  size : Int
+}
+
+///|
+/// 绝对函数索引 → 函数体位置。imported 函数占住前面的索引，但没有 body。
+pub fn function_layout(data : Bytes, sections : Array[Section]) -> Map[Int, FunctionLayout] {
+  let layout : Map[Int, FunctionLayout] = Map([])
+  let mut imported = 0
+  let parsed_body = try {
+    Some(@core_parser.parse_module(data))
+  } catch {
+    _ => None
+  }
+  match parsed_body {
+    Some(parsed) => {
+      for declaration in parsed.imports {
+        match declaration.desc {
+          Func(_) => imported = imported + 1
+          _ => ()
+        }
+      }
+    }
+    None => ()
+  }
+  for section in sections {
+    if section.id != 10 {
+      continue
+    }
+    let cursor = Ref(section.payload)
+    let end = section.payload + section.size
+    let count = read_leb(data, cursor) catch { _ => return layout }
+    for index in 0..<count {
+      let size = read_leb(data, cursor) catch { _ => return layout }
+      let body_start = cursor.val
+      if body_start + size > end {
+        return layout
+      }
+      // body 的前若干个字节是 locals 声明；wasm 栈回溯的 offset 相对 body 起点，
+      // 因此这里保留 body 起点，不尝试跳过 locals。
+      layout.set(imported + index, { start: body_start, size })
+      cursor.val = body_start + size
+    }
+  }
+  layout
+}

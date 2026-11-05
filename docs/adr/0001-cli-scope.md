@@ -49,6 +49,8 @@ MoonBit 的 wasm 积木已经相当完整：`wasm_core` 提供 core 规范模型
 | `metadata [FILE]` | 展示 name section 与 producers section | 文本或 `--json` |
 | `size [FILE]` | section、函数体大小、直接调用边；支持 `--diff`/`--budget` | 文本或 `--json` |
 | `opt [FILE]` | 调用 `moon-wasm-opt`，默认 `--all-features` | 二进制到 stdout/`-o` |
+| `compose [FILE.wac]` | 按 WAC 组合组件 | 二进制到 stdout/`-o` |
+| `symbolize [FILE] ADDR` | 栈地址 → 函数名/函数内偏移 | 文本或 `--json` |
 | `component wit [FILE]` | 从 component 提取 WIT | stdout 或 `-o FILE` |
 
 通用约定：
@@ -74,6 +76,8 @@ MoonBit 的 wasm 积木已经相当完整：`wasm_core` 提供 core 规范模型
 - 完整的 `wasm-tools` 兼容层
 - `component new`/`embed`：现有库没有 core module 到 component 的完整包装器，
   等真实需求出现再做
+- `addr2line`：MoonBit wasm 产物不含 DWARF；用 `symbolize` 覆盖 name section 能给的
+  信息，见 [0004](0004-post-0.1-roadmap.md)
 - WIT/WAC 的 parse/verify/format：交给 `moonx moonrockz/wasm-devkit`
 - 优化 pass：交给 `moon-wasm-opt`；`opt` 只做子进程桥接
 - 运行时、JIT、解释器

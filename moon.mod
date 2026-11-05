@@ -1,6 +1,6 @@
 name = "Nanaloveyuki/wasm-tools"
 
-version = "0.3.0"
+version = "0.4.0"
 
 readme = "README.md"
 
@@ -20,4 +20,5 @@ import {
   "moonrockz/wit@0.3.0",
   "moonbitlang/async@0.22.7",
   "moonbitlang/x@0.5.7",
+  "mizchi/mwac@0.2.2",
 }

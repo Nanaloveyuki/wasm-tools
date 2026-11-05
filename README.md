@@ -28,6 +28,8 @@ wsm validate app.wasm
 | `metadata [FILE]` | 展示 `name` 与 `producers` custom section |
 | `size [FILE]` | section、函数体大小与调用图；`--top N`、`--diff FILE`、`--budget SIZE`、`--json` |
 | `opt [FILE]` | 调用 `moon-wasm-opt` 优化；`-O2`/`-Oz`、`--passes`、`--wasm-opt PATH` |
+| `compose [FILE.wac]` | 按 WAC 脚本组合组件；`--dep NAME=PATH`、`--dce` |
+| `symbolize [FILE] ADDR` | 把 `wasm-function[N]:0xOFF` 映射到函数名与函数内偏移 |
 | `component wit [FILE]` | 从 component 提取内嵌 WIT 包 |
 
 通用约定：
@@ -47,6 +49,9 @@ wsm size app.wasm --top 20
 wsm size app.wasm --diff old.wasm
 wsm size app.wasm --budget 200KB
 wsm opt app.wasm -Oz -o app.opt.wasm
+wsm compose main.wac -o app.component.wasm
+wsm symbolize app.wasm 'wasm-function[34]:0xd8d'
+wsm symbolize --json app.wasm 0xd8d
 cat app.wasm | wsm validate -
 ```
 
@@ -72,8 +77,8 @@ cat app.wasm | wsm validate -
 |---|---|
 | 0.1.0 | validate / print / parse / dump / strip / metadata / component wit |
 | 0.2.0 | component 感知的 dump/metadata；`size` v1（section、函数、调用图） |
-| 0.3.0（当前） | `opt`（包装 `moon-wasm-opt`）；`size --diff`/`--budget` |
-| 0.4.0 | `compose`（WAC）；`addr2line`（依赖 spike 通过） |
+| 0.3.0 | `opt`（包装 `moon-wasm-opt`）；`size --diff`/`--budget` |
+| 0.4.0（当前） | `compose`（WAC）；`symbolize`（name section 符号化） |
 
 详细设计与验收见 [0004-post-0.1-roadmap](docs/adr/0004-post-0.1-roadmap.md)。
 

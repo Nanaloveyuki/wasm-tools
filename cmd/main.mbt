@@ -51,6 +51,8 @@ async fn dispatch(command : String, args : Array[String]) -> Int raise @cli.CliE
     "metadata" => cmd_metadata(args)
     "size" => cmd_size(args)
     "opt" => cmd_opt(args)
+    "compose" => cmd_compose(args)
+    "symbolize" => cmd_symbolize(args)
     "component" => cmd_component(args)
     _ => {
       raise @cli.CliError::Usage("unknown command: " + command)

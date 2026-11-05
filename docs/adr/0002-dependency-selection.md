@@ -20,7 +20,7 @@
 | `Milky2018/wasm_core` | 0.18.0 | core 二进制解析/编码/验证/WAT 双向 | 指令枚举约 500 个变体，覆盖 GC/SIMD/atomics；解析器可给出逐指令 `byte_offset` |
 | `Milky2018/wasm_component` | 0.18.0 | component 解析/验证、WIT 解析/编码/解码 | 提供 `decode_wit_package_from_component` 与 `format_package`，正是 `component wit` 需要的 |
 | `moonrockz/wit` | 0.3.0 | **仅** `decompiler`：二进制转 WAT（core + component） | 反编译输出带 offset 的多文档 WAT；index 中 `wasm-devkit` 依赖它 |
-| `mizchi/mwac` | 0.2.2 | WAC 组合（后续 `compose` 命令） | 解析 `package ... new ... export` 语法并直接产出 component 二进制 |
+| `mizchi/mwac` | 0.2.2 | WAC 组合（`compose`） | 解析 `package ... new ... export` 语法并直接产出 component 二进制；实测在 wasm 目标可用 |
 | `moonbitlang/async` | 0.22.7 | 文件、stdio、进程 | `fs`/`stdio`/`process` 支持 wasm；`opt` 用 `process` 调用 `moon-wasm-opt` |
 
 依赖版本全部固定，升级必须重新跑 ADR 末尾的验证清单。
@@ -53,6 +53,7 @@ WAT 文档模型互不兼容。CLI 包内必须有一层薄适配：
 | `clbbbb/moonbit-wasm-inspect` | 仅“结构 + features + call graph”子集；实测对合法 MoonBit 产物报 `standard sections must be strictly ordered and unique`，说明 section 处理有 bug |
 | `zhangbowen2006/wasmslim` | 以 CI 体积门禁为主，`print/parse` 子集与主库重复；实测无预编译资产，`moonx` 不可用 |
 | `AdUhTkJm/wasmtools` | 0.1.0 玩具级，能力远小于 `wasm_core` |
+| `wuhaiting321/dwarfscope` | 子包可编到 wasm、与 `x@0.5.x` 不冲突，但 MoonBit 的 wasm 产物不生成 DWARF，`addr2line` 没有数据源；不引入 |
 | `moonbit-community/cmd` | 组织约定可参考（命令拆包、ADR 风格），但不是 wasm 专用 |
 
 ### 上游问题（需要提交，不阻塞首版）

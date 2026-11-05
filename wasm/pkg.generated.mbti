@@ -13,6 +13,10 @@ pub fn component_to_wit(Bytes) -> String raise @cli.CliError
 
 pub fn component_wat_to_binary(String) -> Bytes raise @cli.CliError
 
+pub async fn compose(ComposeOptions, String) -> Bytes raise @cli.CliError
+
+pub fn compose_packages(String) -> Array[String] raise @cli.CliError
+
 pub fn core_to_wat(Bytes) -> String raise @cli.CliError
 
 pub fn custom_views(Bytes, Array[Section]) -> Array[CustomView] raise @cli.CliError
@@ -29,11 +33,17 @@ pub fn dump_text(Bytes, Array[Section], InputKind, Bool) -> String raise @cli.Cl
 
 pub async fn find_optimizer(String?) -> String raise @cli.CliError
 
+pub fn function_layout(Bytes, Array[Section]) -> Map[Int32, FunctionLayout]
+
+pub fn function_names(Bytes, CustomView) -> Map[Int32, String] raise @cli.CliError
+
 pub fn metadata_text(Bytes, InputKind, Bool) -> String raise @cli.CliError
 
 pub fn name_section_function_count(Bytes, CustomView) -> Int32 raise @cli.CliError
 
 pub fn name_section_module(Bytes, CustomView) -> String? raise @cli.CliError
+
+pub fn parse_address(String) -> (Int32?, Int32) raise @cli.CliError
 
 pub fn producers(Bytes, CustomView) -> Array[ProducerField] raise @cli.CliError
 
@@ -63,6 +73,12 @@ pub fn size_text(SizeReport, Int32) -> String
 
 pub fn strip_custom_sections(Bytes, Array[Section], (String) -> Bool) -> Bytes
 
+pub fn symbolize(Bytes, String) -> Symbolized raise @cli.CliError
+
+pub fn symbolize_json(Symbolized) -> String
+
+pub fn symbolize_text(Symbolized) -> String
+
 pub fn validate_component(Bytes) -> Unit raise @cli.CliError
 
 pub fn validate_core(Bytes) -> Unit raise @cli.CliError
@@ -72,6 +88,14 @@ pub fn wat_to_core(String) -> Bytes raise @cli.CliError
 // Errors
 
 // Types and methods
+pub(all) struct ComposeOptions {
+  mut base : String
+  mut deps : Map[String, String]
+  mut dce : Bool
+  mut best_effort : Bool
+}
+pub fn ComposeOptions::new(String) -> Self
+
 pub struct CustomView {
   name : String
   body : Int32
@@ -84,6 +108,11 @@ pub struct FunctionDelta {
   before : Int32
   after : Int32
   status : String
+}
+
+pub struct FunctionLayout {
+  start : Int32
+  size : Int32
 }
 
 pub struct FunctionSize {
@@ -141,6 +170,13 @@ pub struct SizeSection {
   payload : Int32
   total : Int32
   percent : Double
+}
+
+pub struct Symbolized {
+  function_index : Int32?
+  name : String?
+  address : Int32
+  function_offset : Int32?
 }
 
 // Type aliases

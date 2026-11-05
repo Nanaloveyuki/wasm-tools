@@ -44,7 +44,7 @@ expect() {
   echo "ok   $name"
 }
 
-expect version 0 'wsm 0.3.0' --version
+expect version 0 'wsm 0.4.0' --version
 expect help 0 'Usage: wsm <COMMAND>' --help
 
 hello_win="$WIN_TMP/wsm-hello.wasm"
@@ -55,6 +55,12 @@ expect dump 0 'code' dump "$hello_win"
 expect size 0 'call graph' size "$hello_win"
 expect budget-fail 1 'exceeds budget' size --budget 10B "$hello_win"
 expect diff 0 'no function size changes' size --diff "$hello_win" "$hello_win"
+
+expect symbolize 0 'name add' symbolize "$hello_win" 'wasm-function[0]:0x2d'
+
+compose_win="$WIN_TMP/wsm-composed.wasm"
+expect compose 0 '' compose "$(wslpath -w "$root/tests/fixtures/wac/main.wac")" -o "$compose_win"
+expect compose-validate 0 'valid component' validate "$compose_win"
 
 opt_win="$WIN_TMP/wsm-hello.opt.wasm"
 expect opt 0 '' opt --wasm-opt "$WIN_WASM_OPT" -Oz "$hello_win" -o "$opt_win"

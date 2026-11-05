@@ -14,6 +14,8 @@ pub fn help_text() -> String {
     #|  metadata [FILE]        Show name and producers sections
 #|  size [FILE]            Report section and function sizes
 #|  opt [FILE]             Optimize with moon-wasm-opt (-Oz, --passes)
+#|  compose [FILE.wac]     Compose components from a WAC script (--dep NAME=PATH)
+#|  symbolize [FILE] ADDR  Map a wasm stack address to a function name
     #|  component wit [FILE]   Extract the WIT package from a component
     #|  help                   Show this message
     #|
