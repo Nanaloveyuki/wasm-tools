@@ -1,6 +1,6 @@
 import {
-  "Nanaloveyuki/wasm-tools/cli" @cli,
-  "Nanaloveyuki/wasm-tools/wasm" @wasm,
+  "Nanaloveyuki/wasm-tools/cli",
+  "Nanaloveyuki/wasm-tools/wasm",
   "moonbitlang/core/encoding/utf8",
   "moonbitlang/core/string" @str,
 }

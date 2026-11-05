@@ -84,7 +84,7 @@ fn dump_instructions(data : Bytes) -> String raise @cli.CliError {
   match detect_kind(data) {
     Component => "  (component: instruction listing is not supported)\n"
     CoreModule => {
-      let (parsed, sources) = try @core_parser.parse_module_with_sources(data) catch {
+      let (parsed, sources) = @core_parser.parse_module_with_sources(data) catch {
         e => raise @cli.CliError::Invalid("parse: " + e.to_string())
       }
       let out = StringBuilder()
@@ -93,7 +93,10 @@ fn dump_instructions(data : Bytes) -> String raise @cli.CliError {
         let absolute = imported + index
         let name = parsed.func_names.get(absolute).unwrap_or("")
         out.write_string(
-          "func " + absolute.to_string() + (if name.is_empty() { "" } else { " " + name }) + "\n",
+          "func " +
+          absolute.to_string() +
+          (if name.is_empty() { "" } else { " " + name }) +
+          "\n",
         )
         let code = parsed.codes[index]
         let source = if index < sources.length() { sources[index] } else { [] }
@@ -104,7 +107,11 @@ fn dump_instructions(data : Bytes) -> String raise @cli.CliError {
             "?"
           }
           out.write_string(
-            "  @" + offset + "  " + concise_instruction(code.body[i].to_string()) + "\n",
+            "  @" +
+            offset +
+            "  " +
+            concise_instruction(code.body[i].to_string()) +
+            "\n",
           )
         }
       }
@@ -118,7 +125,7 @@ fn instructions_json(data : Bytes) -> String raise @cli.CliError {
   match detect_kind(data) {
     Component => ""
     CoreModule => {
-      let (parsed, sources) = try @core_parser.parse_module_with_sources(data) catch {
+      let (parsed, sources) = @core_parser.parse_module_with_sources(data) catch {
         e => raise @cli.CliError::Invalid("parse: " + e.to_string())
       }
       let out = StringBuilder()
@@ -148,13 +155,17 @@ fn instructions_json(data : Bytes) -> String raise @cli.CliError {
             out.write_string(",")
           }
           out.write_string("{\"offset\":")
-          out.write_string(if i < source.length() {
-            source[i].byte_offset.to_string()
-          } else {
-            "-1"
-          })
+          out.write_string(
+            if i < source.length() {
+              source[i].byte_offset.to_string()
+            } else {
+              "-1"
+            },
+          )
           out.write_string(",\"op\":")
-          out.write_string(json_string(concise_instruction(code.body[i].to_string())))
+          out.write_string(
+            json_string(concise_instruction(code.body[i].to_string())),
+          )
           out.write_string("}")
         }
         out.write_string("]}")
@@ -165,7 +176,11 @@ fn instructions_json(data : Bytes) -> String raise @cli.CliError {
 }
 
 ///|
-pub fn metadata_text(data : Bytes, kind : InputKind, json : Bool) -> String raise @cli.CliError {
+pub fn metadata_text(
+  data : Bytes,
+  kind : InputKind,
+  json : Bool,
+) -> String raise @cli.CliError {
   let sections = scan_sections(data)
   let views = custom_views(data, sections)
   let mut module_name : String? = None
@@ -296,12 +311,11 @@ fn concise_instruction(text : String) -> String {
     return text
   }
   match text.find("(") {
-    Some(index) if index > 0 => {
+    Some(index) if index > 0 =>
       match text.get_view(start=0, end=index) {
         Some(view) => view.to_owned() + "(...)"
         None => text
       }
-    }
     _ => text
   }
 }

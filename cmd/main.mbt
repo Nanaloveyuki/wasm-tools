@@ -1,6 +1,6 @@
 ///|
 /// 子命令分发。命令只负责参数与输出格式，二进制细节在 `wasm` 包。
-pub async fn run(argv : Array[String]) -> Int {
+pub async fn run(argv : Array[String]) -> Int32 {
   let args = argv[1:].to_owned()
   if args.is_empty() {
     @cli.write_stdout(@cli.help_text())
@@ -13,7 +13,9 @@ pub async fn run(argv : Array[String]) -> Int {
   } catch {
     @cli.CliError::Usage(message) => {
       @cli.write_stderr_lossy(@cli.TOOL_NAME + ": " + message + "\n")
-      @cli.write_stderr_lossy("Run `" + @cli.TOOL_NAME + " --help` for usage.\n")
+      @cli.write_stderr_lossy(
+        "Run `" + @cli.TOOL_NAME + " --help` for usage.\n",
+      )
       return 2
     }
     @cli.CliError::Io(message) => {
@@ -33,7 +35,10 @@ pub async fn run(argv : Array[String]) -> Int {
 }
 
 ///|
-async fn dispatch(command : String, args : Array[String]) -> Int raise @cli.CliError {
+async fn dispatch(
+  command : String,
+  args : Array[String],
+) -> Int32 raise @cli.CliError {
   match command {
     "-h" | "--help" | "help" => {
       @cli.write_stdout(@cli.help_text())
@@ -53,8 +58,6 @@ async fn dispatch(command : String, args : Array[String]) -> Int raise @cli.CliE
     "opt" => cmd_opt(args)
     "symbolize" => cmd_symbolize(args)
     "component" => cmd_component(args)
-    _ => {
-      raise @cli.CliError::Usage("unknown command: " + command)
-    }
+    _ => raise @cli.CliError::Usage("unknown command: " + command)
   }
 }

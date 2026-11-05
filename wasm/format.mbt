@@ -1,5 +1,5 @@
 ///|
-fn pad_left(value : String, width : Int) -> String {
+fn pad_left(value : String, width : Int32) -> String {
   let out = StringBuilder()
   let mut pad = width - value.length()
   while pad > 0 {
@@ -11,7 +11,7 @@ fn pad_left(value : String, width : Int) -> String {
 }
 
 ///|
-fn pad_right(value : String, width : Int) -> String {
+fn pad_right(value : String, width : Int32) -> String {
   let out = StringBuilder()
   out.write_string(value)
   let mut pad = width - value.length()

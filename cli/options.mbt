@@ -4,7 +4,6 @@ pub const TOOL_NAME : String = "wsm"
 ///|
 pub const VERSION : String = "0.4.2"
 
-
 ///|
 /// 所有子命令共享的输入输出选项。`input = None` 表示 stdin。
 pub struct Options {
@@ -18,7 +17,7 @@ pub struct Options {
 
 ///|
 pub fn Options::new() -> Options {
-  { input: None, output: None, json: false, help: false, extra: [] }
+  { input: None, output: None, json: false, help: false, extra: [], }
 }
 
 ///|
@@ -26,8 +25,8 @@ pub fn Options::new() -> Options {
 /// 它们的值不会被误当作输入文件。未知选项原样留在 `extra`。
 pub fn parse_options(
   args : Array[String],
-  allow_json? : Bool = false,
-  value_options? : Array[String] = [],
+  allow_json~ : Bool = false,
+  value_options~ : Array[String] = [],
 ) -> Options raise CliError {
   let options = Options::new()
   let mut index = 0

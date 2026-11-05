@@ -1,10 +1,10 @@
 ///|
 /// component 适配层。解析/验证用 `wasm_component`，打印用 `moonrockz/wit`。
 pub fn validate_component(data : Bytes) -> Unit raise @cli.CliError {
-  let component = try @component.parse_component(data) catch {
+  let component = @component.parse_component(data) catch {
     e => raise @cli.CliError::Invalid("parse: " + e.to_string())
   }
-  try @component_validator.validate_component(component) catch {
+  @component_validator.validate_component(component) catch {
     e => raise @cli.CliError::Invalid(e.to_string())
   }
 }
@@ -40,15 +40,18 @@ pub fn component_to_wat(data : Bytes) -> String raise @cli.CliError {
 
 ///|
 pub fn component_wat_to_binary(text : String) -> Bytes raise @cli.CliError {
-  try @component_text.parse_component_wat(text) catch {
+  @component_text.parse_component_wat(text) catch {
     e => raise @cli.CliError::Invalid("parse: " + e.to_string())
   }
 }
 
 ///|
 pub fn component_to_wit(data : Bytes) -> String raise @cli.CliError {
-  let wit_pkg = try @component_wit.decode_wit_package_from_component(data) catch {
-    e => raise @cli.CliError::Unsupported("component has no WIT package: " + e.to_string())
+  let wit_pkg = @component_wit.decode_wit_package_from_component(data) catch {
+    e =>
+      raise @cli.CliError::Unsupported(
+        "component has no WIT package: " + e.to_string(),
+      )
   }
   @component_wit.format_package(wit_pkg)
 }

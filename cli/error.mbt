@@ -18,7 +18,7 @@ pub fn CliError::message(self : CliError) -> String {
 }
 
 ///|
-pub fn CliError::exit_code(self : CliError) -> Int {
+pub fn CliError::exit_code(self : CliError) -> Int32 {
   match self {
     Usage(_) | Io(_) => 2
     Invalid(_) | Unsupported(_) => 1

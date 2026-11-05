@@ -1,5 +1,5 @@
 ///|
-pub async fn cmd_print(args : Array[String]) -> Int raise @cli.CliError {
+pub async fn cmd_print(args : Array[String]) -> Int32 raise @cli.CliError {
   let options = @cli.parse_options(args)
   @cli.reject_unknown(options)
   if options.help {

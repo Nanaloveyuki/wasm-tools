@@ -16,13 +16,13 @@ pub async fn find_optimizer(explicit : String?) -> String raise @cli.CliError {
   // 显式路径是权威的：用户指错了就应该报错，而不是悄悄用另一个 binaryen
   match explicit {
     Some(path) => {
-      let ok = try probe_optimizer(path) catch {
-        _ => false
-      }
+      let ok = probe_optimizer(path) catch { _ => false }
       if ok {
         return path
       }
-      raise @cli.CliError::Io("--wasm-opt " + path + " is not a working moon-wasm-opt binary")
+      raise @cli.CliError::Io(
+        "--wasm-opt " + path + " is not a working moon-wasm-opt binary",
+      )
     }
     None => ()
   }
@@ -37,9 +37,7 @@ pub async fn find_optimizer(explicit : String?) -> String raise @cli.CliError {
   candidates.push("moon-wasm-opt")
   candidates.push("moon-wasm-opt.exe")
   for candidate in candidates {
-    let ok = try probe_optimizer(candidate) catch {
-      _ => false
-    }
+    let ok = probe_optimizer(candidate) catch { _ => false }
     if ok {
       return candidate
     }
@@ -51,9 +49,7 @@ pub async fn find_optimizer(explicit : String?) -> String raise @cli.CliError {
 
 ///|
 async fn probe_optimizer(path : String) -> Bool {
-  let result = try {
-    @process.collect_output(path, ["--version"])
-  } catch {
+  let result = @process.collect_output(path, ["--version"]) catch {
     _ => return false
   }
   result.0 == 0
@@ -66,25 +62,25 @@ pub async fn run_optimizer(
   level : String,
   passes : Array[String],
 ) -> Bytes raise @cli.CliError {
-  let dir = try @fs.tmpdir(prefix="wsm-opt-") catch {
-    e => raise @cli.CliError::Io("cannot create a temporary directory: " + e.to_string())
+  let dir = @fs.tmpdir(prefix="wsm-opt-") catch {
+    e =>
+      raise @cli.CliError::Io(
+        "cannot create a temporary directory: " + e.to_string(),
+      )
   }
   let input = dir + "/input.wasm"
   let output = dir + "/output.wasm"
   // 临时文件必须清理，否则 `moonx` 反复调用会堆满临时目录
   defer {
-    let _ = try @fs.remove(output) catch {
-      _ => ()
-    }
-    let _ = try @fs.remove(input) catch {
-      _ => ()
-    }
-    let _ = try @fs.rmdir(dir) catch {
-      _ => ()
-    }
+    let _ = @fs.remove(output) catch { _ => () }
+    let _ = @fs.remove(input) catch { _ => () }
+    let _ = @fs.rmdir(dir) catch { _ => () }
   }
-  try @fs.write_file(input, data) catch {
-    e => raise @cli.CliError::Io("cannot write the temporary input: " + e.to_string())
+  @fs.write_file(input, data) catch {
+    e =>
+      raise @cli.CliError::Io(
+        "cannot write the temporary input: " + e.to_string(),
+      )
   }
   let args : Array[String] = ["--all-features", level]
   for pass in passes {
@@ -93,17 +89,21 @@ pub async fn run_optimizer(
   args.push(input)
   args.push("-o")
   args.push(output)
-  let (code, _, stderr) = try {
-    @process.collect_output(optimizer.path, args)
-  } catch {
-    e => raise @cli.CliError::Unsupported("cannot run " + optimizer.path + ": " + e.to_string())
+  let (code, _, stderr) = @process.collect_output(optimizer.path, args) catch {
+    e =>
+      raise @cli.CliError::Unsupported(
+        "cannot run " + optimizer.path + ": " + e.to_string(),
+      )
   }
   if code != 0 {
-    let message = try stderr.text() catch { _ => "" }
-    raise @cli.CliError::Invalid("optimizer failed: " + message.trim().to_owned())
+    let message = stderr.text() catch { _ => "" }
+    raise @cli.CliError::Invalid(
+      "optimizer failed: " + message.trim().to_owned(),
+    )
   }
-  let result = try @fs.read_file(output).binary() catch {
-    e => raise @cli.CliError::Io("optimizer produced no output: " + e.to_string())
+  let result = @fs.read_file(output).binary() catch {
+    e =>
+      raise @cli.CliError::Io("optimizer produced no output: " + e.to_string())
   }
   // 先验证再返回，避免把损坏的产物写出去
   validate_core(result)

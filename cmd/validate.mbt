@@ -1,5 +1,5 @@
 ///|
-pub async fn cmd_validate(args : Array[String]) -> Int raise @cli.CliError {
+pub async fn cmd_validate(args : Array[String]) -> Int32 raise @cli.CliError {
   let options = @cli.parse_options(args)
   @cli.reject_unknown(options)
   if options.help {
@@ -12,11 +12,15 @@ pub async fn cmd_validate(args : Array[String]) -> Int raise @cli.CliError {
   match @wasm.detect_kind(data) {
     @wasm.CoreModule => {
       @wasm.validate_core(data)
-      @cli.write_stdout("valid core module (" + data.length().to_string() + " bytes)\n")
+      @cli.write_stdout(
+        "valid core module (" + data.length().to_string() + " bytes)\n",
+      )
     }
     @wasm.Component => {
       @wasm.validate_component(data)
-      @cli.write_stdout("valid component (" + data.length().to_string() + " bytes)\n")
+      @cli.write_stdout(
+        "valid component (" + data.length().to_string() + " bytes)\n",
+      )
     }
   }
   0

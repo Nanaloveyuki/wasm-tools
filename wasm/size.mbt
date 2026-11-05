@@ -2,32 +2,32 @@
 /// 体积报告。只使用 raw section 与 core 指令模型，不引入额外依赖。
 pub struct SizeSection {
   label : String
-  payload : Int
-  total : Int
+  payload : Int32
+  total : Int32
   percent : Double
 }
 
 ///|
 pub struct FunctionSize {
-  index : Int
+  index : Int32
   name : String
-  bytes : Int
+  bytes : Int32
 }
 
 ///|
 pub struct SizeReport {
   file : String
-  total : Int
-  header : Int
+  total : Int32
+  header : Int32
   sections : Array[SizeSection]
-  imported_functions : Int
+  imported_functions : Int32
   functions : Array[FunctionSize]
-  call_edges : Int
-  indirect_calls : Int
+  call_edges : Int32
+  indirect_calls : Int32
 }
 
 ///|
-fn percent(part : Int, total : Int) -> Double {
+fn percent(part : Int32, total : Int32) -> Double {
   if total == 0 {
     0.0
   } else {
@@ -37,7 +37,10 @@ fn percent(part : Int, total : Int) -> Double {
 
 ///|
 /// 解析 code section 的每个 body 长度（字节数在 size 前缀之后）。
-fn code_body_sizes(data : Bytes, sections : Array[Section]) -> Array[Int] raise @cli.CliError {
+fn code_body_sizes(
+  data : Bytes,
+  sections : Array[Section],
+) -> Array[Int32] raise @cli.CliError {
   for section in sections {
     if section.id != 10 {
       continue
@@ -45,7 +48,7 @@ fn code_body_sizes(data : Bytes, sections : Array[Section]) -> Array[Int] raise 
     let cursor = Ref(section.payload)
     let end = section.payload + section.size
     let count = read_leb(data, cursor)
-    let sizes : Array[Int] = []
+    let sizes : Array[Int32] = []
     for _ in 0..<count {
       let size = read_leb(data, cursor)
       let body_start = cursor.val
@@ -62,7 +65,10 @@ fn code_body_sizes(data : Bytes, sections : Array[Section]) -> Array[Int] raise 
 
 ///|
 /// 生成报告。`top` 只影响文本输出的截断，JSON 总是包含全部函数。
-pub fn size_report(data : Bytes, file : String) -> SizeReport raise @cli.CliError {
+pub fn size_report(
+  data : Bytes,
+  file : String,
+) -> SizeReport raise @cli.CliError {
   let kind = detect_kind(data)
   let sections = scan_sections(data)
   let total = data.length()
@@ -88,7 +94,7 @@ pub fn size_report(data : Bytes, file : String) -> SizeReport raise @cli.CliErro
       indirect_calls: 0,
     }
   }
-  let parsed = try @core_parser.parse_module(data) catch {
+  let parsed = @core_parser.parse_module(data) catch {
     e => raise @cli.CliError::Invalid("parse: " + e.to_string())
   }
   let mut imported = 0
@@ -114,8 +120,10 @@ pub fn size_report(data : Bytes, file : String) -> SizeReport raise @cli.CliErro
     for instruction in code.body {
       match instruction {
         Call(_) | ReturnCall(_) => edges = edges + 1
-        CallIndirect(_, _) | ReturnCallIndirect(_, _) | CallRef(_) | ReturnCallRef(_) =>
-          indirect = indirect + 1
+        CallIndirect(_, _)
+        | ReturnCallIndirect(_, _)
+        | CallRef(_)
+        | ReturnCallRef(_) => indirect = indirect + 1
         _ => ()
       }
     }
@@ -133,7 +141,7 @@ pub fn size_report(data : Bytes, file : String) -> SizeReport raise @cli.CliErro
 }
 
 ///|
-pub fn size_text(report : SizeReport, top : Int) -> String {
+pub fn size_text(report : SizeReport, top : Int32) -> String {
   let out = StringBuilder()
   out.write_string("file " + report.file + "\n")
   out.write_string("total " + report.total.to_string() + " B\n")
@@ -160,11 +168,25 @@ pub fn size_text(report : SizeReport, top : Int) -> String {
       left.index - right.index
     }
   })
-  let shown = if top <= 0 || top > sorted.length() { sorted.length() } else { top }
-  out.write_string("\nfunctions (top " + shown.to_string() + " of " + sorted.length().to_string() + ")\n")
+  let shown = if top <= 0 || top > sorted.length() {
+    sorted.length()
+  } else {
+    top
+  }
+  out.write_string(
+    "\nfunctions (top " +
+    shown.to_string() +
+    " of " +
+    sorted.length().to_string() +
+    ")\n",
+  )
   for i = 0; i < shown; i = i + 1 {
     let function_ = sorted[i]
-    let name = if function_.name.is_empty() { "(unnamed)" } else { function_.name }
+    let name = if function_.name.is_empty() {
+      "(unnamed)"
+    } else {
+      function_.name
+    }
     out.write_string(
       "  " +
       pad_left(function_.index.to_string(), 6) +
@@ -234,8 +256,8 @@ pub fn size_json(report : SizeReport) -> String {
 pub struct FunctionDelta {
   key : String
   name : String
-  before : Int
-  after : Int
+  before : Int32
+  after : Int32
   status : String
 }
 
@@ -243,8 +265,8 @@ pub struct FunctionDelta {
 pub struct SizeDiff {
   file : String
   baseline : String
-  before_total : Int
-  after_total : Int
+  before_total : Int32
+  after_total : Int32
   changes : Array[FunctionDelta]
 }
 
@@ -278,7 +300,7 @@ pub fn size_diff(current : SizeReport, baseline : SizeReport) -> SizeDiff {
   let changes : Array[FunctionDelta] = []
   for key, function_ in after {
     match before.get(key) {
-      Some(old) => {
+      Some(old) =>
         if old.bytes != function_.bytes {
           changes.push({
             key,
@@ -288,7 +310,6 @@ pub fn size_diff(current : SizeReport, baseline : SizeReport) -> SizeDiff {
             status: "changed",
           })
         }
-      }
       None =>
         changes.push({
           key,
@@ -329,12 +350,12 @@ pub fn size_diff(current : SizeReport, baseline : SizeReport) -> SizeDiff {
 }
 
 ///|
-fn delta_of(change : FunctionDelta) -> Int {
+fn delta_of(change : FunctionDelta) -> Int32 {
   change.after - change.before
 }
 
 ///|
-pub fn diff_text(diff : SizeDiff, top : Int) -> String {
+pub fn diff_text(diff : SizeDiff, top : Int32) -> String {
   let out = StringBuilder()
   let total_delta = diff.after_total - diff.before_total
   out.write_string("file " + diff.file + "\n")
@@ -357,7 +378,13 @@ pub fn diff_text(diff : SizeDiff, top : Int) -> String {
   } else {
     top
   }
-  out.write_string("\nfunctions (top " + shown.to_string() + " of " + diff.changes.length().to_string() + ")\n")
+  out.write_string(
+    "\nfunctions (top " +
+    shown.to_string() +
+    " of " +
+    diff.changes.length().to_string() +
+    ")\n",
+  )
   for i = 0; i < shown; i = i + 1 {
     let change = diff.changes[i]
     let name = if change.name.is_empty() { change.key } else { change.name }
@@ -415,7 +442,7 @@ pub fn diff_json(diff : SizeDiff) -> String {
 }
 
 ///|
-fn signed(value : Int) -> String {
+fn signed(value : Int32) -> String {
   if value > 0 {
     "+" + value.to_string()
   } else {
@@ -426,30 +453,28 @@ fn signed(value : Int) -> String {
 ///|
 pub struct FunctionLayout {
   /// 函数体第一条指令的绝对文件 offset（跳过 size 前缀与 locals 声明）
-  start : Int
+  start : Int32
   /// 函数体字节数（locals + 表达式）
-  size : Int
+  size : Int32
 }
 
 ///|
 /// 绝对函数索引 → 函数体位置。imported 函数占住前面的索引，但没有 body。
-pub fn function_layout(data : Bytes, sections : Array[Section]) -> Map[Int, FunctionLayout] {
-  let layout : Map[Int, FunctionLayout] = Map([])
+pub fn function_layout(
+  data : Bytes,
+  sections : Array[Section],
+) -> Map[Int32, FunctionLayout] {
+  let layout : Map[Int32, FunctionLayout] = Map([])
   let mut imported = 0
-  let parsed_body = try {
-    Some(@core_parser.parse_module(data))
-  } catch {
-    _ => None
-  }
+  let parsed_body = Some(@core_parser.parse_module(data)) catch { _ => None }
   match parsed_body {
-    Some(parsed) => {
+    Some(parsed) =>
       for declaration in parsed.imports {
         match declaration.desc {
           Func(_) => imported = imported + 1
           _ => ()
         }
       }
-    }
     None => ()
   }
   for section in sections {
@@ -467,7 +492,7 @@ pub fn function_layout(data : Bytes, sections : Array[Section]) -> Map[Int, Func
       }
       // body 的前若干个字节是 locals 声明；wasm 栈回溯的 offset 相对 body 起点，
       // 因此这里保留 body 起点，不尝试跳过 locals。
-      layout.set(imported + index, { start: body_start, size })
+      layout.set(imported + index, { start: body_start, size, })
       cursor.val = body_start + size
     }
   }

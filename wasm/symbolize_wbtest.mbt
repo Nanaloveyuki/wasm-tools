@@ -5,7 +5,12 @@ test "symbolize maps an absolute offset to a named function" {
   ) catch {
     _ => fail("parse failed")
   }
-  let layout = function_layout(bytes, scan_sections(bytes) catch { _ => fail("scan failed") })
+  let layout = function_layout(
+    bytes,
+    scan_sections(bytes) catch {
+      _ => fail("scan failed")
+    },
+  )
   let entry = match layout.get(0) {
     Some(entry) => entry
     None => fail("function 0 not laid out")

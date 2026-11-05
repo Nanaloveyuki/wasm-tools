@@ -1,5 +1,5 @@
 ///|
-pub async fn cmd_component(args : Array[String]) -> Int raise @cli.CliError {
+pub async fn cmd_component(args : Array[String]) -> Int32 raise @cli.CliError {
   if args.is_empty() {
     raise @cli.CliError::Usage("component requires a subcommand: wit")
   }
@@ -13,12 +13,13 @@ pub async fn cmd_component(args : Array[String]) -> Int raise @cli.CliError {
       )
       0
     }
-    _ => raise @cli.CliError::Usage("unknown component subcommand: " + subcommand)
+    _ =>
+      raise @cli.CliError::Usage("unknown component subcommand: " + subcommand)
   }
 }
 
 ///|
-async fn component_wit(args : Array[String]) -> Int raise @cli.CliError {
+async fn component_wit(args : Array[String]) -> Int32 raise @cli.CliError {
   let options = @cli.parse_options(args)
   @cli.reject_unknown(options)
   if options.help {

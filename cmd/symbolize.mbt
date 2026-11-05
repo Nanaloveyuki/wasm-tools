@@ -1,5 +1,5 @@
 ///|
-pub async fn cmd_symbolize(args : Array[String]) -> Int raise @cli.CliError {
+pub async fn cmd_symbolize(args : Array[String]) -> Int32 raise @cli.CliError {
   let options = @cli.parse_options(args, allow_json=true)
   if options.help {
     @cli.write_stdout(

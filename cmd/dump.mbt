@@ -1,5 +1,5 @@
 ///|
-pub async fn cmd_dump(args : Array[String]) -> Int raise @cli.CliError {
+pub async fn cmd_dump(args : Array[String]) -> Int32 raise @cli.CliError {
   let options = @cli.parse_options(args, allow_json=true)
   let instructions = @cli.take_flag(options, "--instructions")
   @cli.reject_unknown(options)

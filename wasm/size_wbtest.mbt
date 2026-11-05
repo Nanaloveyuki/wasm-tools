@@ -5,7 +5,9 @@ test "section totals plus header equal the file size" {
   ) catch {
     _ => fail("parse failed")
   }
-  let report = size_report(bytes, "test.wasm") catch { _ => fail("size failed") }
+  let report = size_report(bytes, "test.wasm") catch {
+    _ => fail("size failed")
+  }
   let mut sum = report.header
   for section in report.sections {
     sum = sum + section.total
@@ -23,7 +25,9 @@ test "component size reports sections without functions" {
   ) catch {
     _ => fail("component parse failed")
   }
-  let report = size_report(bytes, "test.wasm") catch { _ => fail("size failed") }
+  let report = size_report(bytes, "test.wasm") catch {
+    _ => fail("size failed")
+  }
   inspect(report.functions.length(), content="0")
   inspect(report.sections.length() > 0, content="true")
 }
@@ -31,7 +35,9 @@ test "component size reports sections without functions" {
 ///|
 test "size_diff classifies added, removed and changed functions" {
   let base = size_report(
-    wat_to_core("(module (func $a (result i32) i32.const 1) (export \"a\" (func $a)))") catch {
+    wat_to_core(
+      "(module (func $a (result i32) i32.const 1) (export \"a\" (func $a)))",
+    ) catch {
       _ => fail("parse failed")
     },
     "base.wasm",

@@ -1,10 +1,8 @@
 ///|
-pub async fn cmd_size(args : Array[String]) -> Int raise @cli.CliError {
-  let options = @cli.parse_options(
-    args,
-    allow_json=true,
-    value_options=["--top", "--diff", "--budget"],
-  )
+pub async fn cmd_size(args : Array[String]) -> Int32 raise @cli.CliError {
+  let options = @cli.parse_options(args, allow_json=true, value_options=[
+    "--top", "--diff", "--budget",
+  ])
   let top_values = @cli.take_value(options, "--top")
   let diff_values = @cli.take_value(options, "--diff")
   let budget_values = @cli.take_value(options, "--budget")
@@ -42,7 +40,7 @@ pub async fn cmd_size(args : Array[String]) -> Int raise @cli.CliError {
     Some(_) => @cli.write_output(options.output, @utf8.encode(text))
   }
   match budget {
-    Some(limit) => {
+    Some(limit) =>
       if report.total > limit {
         let message = @cli.TOOL_NAME +
           ": size " +
@@ -50,24 +48,23 @@ pub async fn cmd_size(args : Array[String]) -> Int raise @cli.CliError {
           " B exceeds budget " +
           limit.to_string() +
           " B\n"
-        try @cli.write_stderr(message) catch {
+        @cli.write_stderr(message) catch {
           _ => ()
         }
         return 1
       }
-    }
     None => ()
   }
   0
 }
 
 ///|
-fn parse_top(values : Array[String]) -> Int raise @cli.CliError {
+fn parse_top(values : Array[String]) -> Int32 raise @cli.CliError {
   if values.length() == 0 {
     return 10
   }
-  let top = try @str.parse_int(values[0]) catch {
-    _ => { raise @cli.CliError::Usage("--top expects an integer") }
+  let top = @str.parse_int(values[0]) catch {
+    _ => raise @cli.CliError::Usage("--top expects an integer")
   }
   if top < 0 {
     raise @cli.CliError::Usage("--top must not be negative")
@@ -77,7 +74,7 @@ fn parse_top(values : Array[String]) -> Int raise @cli.CliError {
 
 ///|
 /// 只接受 `123`、`123B`、`12KB`、`3MB`；1024 进制，避免和磁盘厂商的 1000 进制混淆。
-fn parse_budget(values : Array[String]) -> Int? raise @cli.CliError {
+fn parse_budget(values : Array[String]) -> Int32? raise @cli.CliError {
   if values.length() == 0 {
     return None
   }
@@ -85,16 +82,25 @@ fn parse_budget(values : Array[String]) -> Int? raise @cli.CliError {
   let mut number_part = text
   let mut multiplier = 1
   if text.has_suffix("KB") {
-    number_part = text.get_view(start=0, end=text.length() - 2).unwrap_or("").to_owned()
+    number_part = text
+      .get_view(start=0, end=text.length() - 2)
+      .unwrap_or("")
+      .to_owned()
     multiplier = 1024
   } else if text.has_suffix("MB") {
-    number_part = text.get_view(start=0, end=text.length() - 2).unwrap_or("").to_owned()
+    number_part = text
+      .get_view(start=0, end=text.length() - 2)
+      .unwrap_or("")
+      .to_owned()
     multiplier = 1024 * 1024
   } else if text.has_suffix("B") {
-    number_part = text.get_view(start=0, end=text.length() - 1).unwrap_or("").to_owned()
+    number_part = text
+      .get_view(start=0, end=text.length() - 1)
+      .unwrap_or("")
+      .to_owned()
   }
-  let base = try @str.parse_int(number_part) catch {
-    _ => { raise @cli.CliError::Usage("--budget expects a size like 200KB") }
+  let base = @str.parse_int(number_part) catch {
+    _ => raise @cli.CliError::Usage("--budget expects a size like 200KB")
   }
   if base < 0 {
     raise @cli.CliError::Usage("--budget must not be negative")

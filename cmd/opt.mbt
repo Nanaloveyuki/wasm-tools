@@ -1,6 +1,8 @@
 ///|
-pub async fn cmd_opt(args : Array[String]) -> Int raise @cli.CliError {
-  let options = @cli.parse_options(args, value_options=["--wasm-opt", "--passes"])
+pub async fn cmd_opt(args : Array[String]) -> Int32 raise @cli.CliError {
+  let options = @cli.parse_options(args, value_options=[
+    "--wasm-opt", "--passes",
+  ])
   let wasm_opt = @cli.take_value(options, "--wasm-opt")
   let passes = @cli.take_value(options, "--passes")
   let (level, remaining) = pick_level(options)
@@ -16,10 +18,16 @@ pub async fn cmd_opt(args : Array[String]) -> Int raise @cli.CliError {
   let data = @cli.read_input(options.input)
   match @wasm.detect_kind(data) {
     @wasm.Component =>
-      raise @cli.CliError::Unsupported("opt: component binaries need the component pipeline; use `component wit` or `print` first")
+      raise @cli.CliError::Unsupported(
+        "opt: component binaries need the component pipeline; use `component wit` or `print` first",
+      )
     @wasm.CoreModule => ()
   }
-  let explicit_path = if wasm_opt.length() > 0 { Some(wasm_opt[0]) } else { None }
+  let explicit_path = if wasm_opt.length() > 0 {
+    Some(wasm_opt[0])
+  } else {
+    None
+  }
   let path = @wasm.find_optimizer(explicit_path)
   let extra : Array[String] = []
   for entry in passes {

@@ -1,5 +1,5 @@
 ///|
-pub async fn cmd_strip(args : Array[String]) -> Int raise @cli.CliError {
+pub async fn cmd_strip(args : Array[String]) -> Int32 raise @cli.CliError {
   let options = @cli.parse_options(args, value_options=["--keep"])
   let keep = @cli.take_value(options, "--keep")
   @cli.reject_unknown(options)
@@ -11,13 +11,9 @@ pub async fn cmd_strip(args : Array[String]) -> Int raise @cli.CliError {
   }
   let data = @cli.read_input(options.input)
   let sections = @wasm.scan_sections(data)
-  let binary = @wasm.strip_custom_sections(
-    data,
-    sections,
-    fn(name) {
-      !keep.contains(name)
-    },
-  )
+  let binary = @wasm.strip_custom_sections(data, sections, fn(name) {
+    !keep.contains(name)
+  })
   @cli.write_output(options.output, binary)
   0
 }

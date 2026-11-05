@@ -2,19 +2,19 @@
 /// 一个 `wasm-function[i]:0xoff` 的解析结果。
 pub struct Symbolized {
   /// 输入中的函数索引；只给绝对 offset 时为 None
-  function_index : Int?
+  function_index : Int32?
   /// 函数名；name section 缺失时为 None
   name : String?
   /// 模块内的绝对字节 offset
-  address : Int
+  address : Int32
   /// 函数体内偏移；只给绝对 offset 时按最近的函数推断
-  function_offset : Int?
+  function_offset : Int32?
 }
 
 ///|
 /// MoonBit 的 wasm 崩溃栈形如 `wasm-function[16]:0x947`。
 /// 解析这个形式，或直接解析十六进制绝对 offset。
-pub fn parse_address(text : String) -> (Int?, Int) raise @cli.CliError {
+pub fn parse_address(text : String) -> (Int32?, Int32) raise @cli.CliError {
   let trimmed = text.trim().to_owned()
   if trimmed.is_empty() {
     raise @cli.CliError::Usage("empty address")
@@ -23,8 +23,11 @@ pub fn parse_address(text : String) -> (Int?, Int) raise @cli.CliError {
     let close = trimmed.find("]")
     match close {
       Some(index) => {
-        let number = trimmed.get_view(start=14, end=index).unwrap_or("").to_owned()
-        let function_index = try @str.parse_int(number) catch {
+        let number = trimmed
+          .get_view(start=14, end=index)
+          .unwrap_or("")
+          .to_owned()
+        let function_index = @str.parse_int(number) catch {
           _ => raise @cli.CliError::Usage("bad function index: " + number)
         }
         let rest = trimmed.get_view(start=index + 1).unwrap_or("").to_owned()
@@ -42,7 +45,7 @@ pub fn parse_address(text : String) -> (Int?, Int) raise @cli.CliError {
 }
 
 ///|
-fn parse_hex(text : String) -> Int raise @cli.CliError {
+fn parse_hex(text : String) -> Int32 raise @cli.CliError {
   let mut value = 0
   let mut seen = false
   let digits = if text.has_prefix("0x") || text.has_prefix("0X") {
@@ -79,11 +82,14 @@ fn parse_hex(text : String) -> Int raise @cli.CliError {
 /// MoonBit 的 wasm 回溯形如 `wasm-function[34]:0xd8d`，其中 `0xd8d` 是
 /// **模块内绝对字节偏移**，不是函数内偏移（实测两个崩溃点都落在对应函数体内）。
 /// 没有 DWARF 时，这是 MoonBit wasm 能提供的最完整信息。
-pub fn symbolize(data : Bytes, address : String) -> Symbolized raise @cli.CliError {
+pub fn symbolize(
+  data : Bytes,
+  address : String,
+) -> Symbolized raise @cli.CliError {
   let (index, absolute) = parse_address(address)
   let sections = scan_sections(data)
   let views = custom_views(data, sections)
-  let mut names : Map[Int, String] = Map([])
+  let mut names : Map[Int32, String] = Map([])
   for view in views {
     if view.name == "name" {
       names = function_names(data, view)
@@ -92,7 +98,7 @@ pub fn symbolize(data : Bytes, address : String) -> Symbolized raise @cli.CliErr
   let layout = function_layout(data, sections)
   // 栈里的 function index 与 offset 应互相印证；不一致时以 offset 定位为准，
   // 但仍保留栈给出的索引，方便发现运行时或工具版本差异。
-  let containing : (Int, FunctionLayout)? = find_function(layout, absolute)
+  let containing : (Int32, FunctionLayout)? = find_function(layout, absolute)
   let reported_index = match index {
     Some(value) => Some(value)
     None =>
@@ -109,20 +115,15 @@ pub fn symbolize(data : Bytes, address : String) -> Symbolized raise @cli.CliErr
     Some(function_index) => names.get(function_index)
     None => None
   }
-  {
-    function_index: reported_index,
-    name,
-    address: absolute,
-    function_offset,
-  }
+  { function_index: reported_index, name, address: absolute, function_offset, }
 }
 
 ///|
 fn find_function(
-  layout : Map[Int, FunctionLayout],
-  absolute : Int,
-) -> (Int, FunctionLayout)? {
-  let mut found : (Int, FunctionLayout)? = None
+  layout : Map[Int32, FunctionLayout],
+  absolute : Int32,
+) -> (Int32, FunctionLayout)? {
+  let mut found : (Int32, FunctionLayout)? = None
   for function_index, entry in layout {
     if absolute >= entry.start && absolute < entry.start + entry.size {
       found = Some((function_index, entry))
@@ -175,7 +176,7 @@ pub fn symbolize_json(symbol : Symbolized) -> String {
 }
 
 ///|
-fn hex(value : Int) -> String {
+fn hex(value : Int32) -> String {
   if value == 0 {
     return "0"
   }

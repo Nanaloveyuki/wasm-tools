@@ -13,10 +13,7 @@ pub fn detect_kind(data : Bytes) -> InputKind raise @cli.CliError {
   if data.length() < 8 {
     raise @cli.CliError::Invalid("input is shorter than the 8-byte wasm header")
   }
-  if data[0] != b'\x00' ||
-    data[1] != b'a' ||
-    data[2] != b's' ||
-    data[3] != b'm' {
+  if data[0] != b'\x00' || data[1] != b'a' || data[2] != b's' || data[3] != b'm' {
     raise @cli.CliError::Invalid("missing wasm magic header")
   }
   let version = data[4].to_int() | (data[5].to_int() << 8)
@@ -38,9 +35,15 @@ pub fn detect_kind(data : Bytes) -> InputKind raise @cli.CliError {
 
 ///|
 /// 组件有自己的 section id 空间；在实现组件感知的扫描前，明确拒绝而不是输出错误标签。
-pub fn reject_component(data : Bytes, command : String) -> Unit raise @cli.CliError {
+pub fn reject_component(
+  data : Bytes,
+  command : String,
+) -> Unit raise @cli.CliError {
   match detect_kind(data) {
-    Component => raise @cli.CliError::Unsupported(command + ": component binaries are not supported yet")
+    Component =>
+      raise @cli.CliError::Unsupported(
+        command + ": component binaries are not supported yet",
+      )
     CoreModule => ()
   }
 }
@@ -55,7 +58,7 @@ pub fn InputKind::is_component(self : InputKind) -> Bool {
 
 ///|
 /// section id 的含义随 core/component 不同；未知 id 保留数字，避免误标。
-pub fn section_name(kind : InputKind, id : Int) -> String {
+pub fn section_name(kind : InputKind, id : Int32) -> String {
   match kind {
     CoreModule =>
       match id {
