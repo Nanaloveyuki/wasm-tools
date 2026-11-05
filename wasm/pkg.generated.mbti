@@ -13,10 +13,6 @@ pub fn component_to_wit(Bytes) -> String raise @cli.CliError
 
 pub fn component_wat_to_binary(String) -> Bytes raise @cli.CliError
 
-pub async fn compose(ComposeOptions, String) -> Bytes raise @cli.CliError
-
-pub fn compose_packages(String) -> Array[String] raise @cli.CliError
-
 pub fn core_to_wat(Bytes) -> String raise @cli.CliError
 
 pub fn custom_views(Bytes, Array[Section]) -> Array[CustomView] raise @cli.CliError
@@ -88,14 +84,6 @@ pub fn wat_to_core(String) -> Bytes raise @cli.CliError
 // Errors
 
 // Types and methods
-pub(all) struct ComposeOptions {
-  mut base : String
-  mut deps : Map[String, String]
-  mut dce : Bool
-  mut best_effort : Bool
-}
-pub fn ComposeOptions::new(String) -> Self
-
 pub struct CustomView {
   name : String
   body : Int32

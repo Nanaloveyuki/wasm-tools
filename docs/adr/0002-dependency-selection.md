@@ -20,7 +20,7 @@
 | `Milky2018/wasm_core` | 0.18.0 | core 二进制解析/编码/验证/WAT 双向 | 指令枚举约 500 个变体，覆盖 GC/SIMD/atomics；解析器可给出逐指令 `byte_offset` |
 | `Milky2018/wasm_component` | 0.18.0 | component 解析/验证、WIT 解析/编码/解码 | 提供 `decode_wit_package_from_component` 与 `format_package`，正是 `component wit` 需要的 |
 | `moonrockz/wit` | 0.3.0 | **仅** `decompiler`：二进制转 WAT（core + component） | 反编译输出带 offset 的多文档 WAT；index 中 `wasm-devkit` 依赖它 |
-| `mizchi/mwac` | 0.2.2 | WAC 组合（`compose`） | 解析 `package ... new ... export` 语法并直接产出 component 二进制；实测在 wasm 目标可用 |
+| ~~`mizchi/mwac`~~ | 0.2.2 | 暂不采用 | 本地可编到 wasm 并完成组合，但其依赖 `mizchi/wit` 在 Mooncakes 构建服务的工具链上编译失败（`Array::to_json` 不存在）；发布后无预编译资产，因此回退 |
 | `moonbitlang/async` | 0.22.7 | 文件、stdio、进程 | `fs`/`stdio`/`process` 支持 wasm；`opt` 用 `process` 调用 `moon-wasm-opt` |
 
 依赖版本全部固定，升级必须重新跑 ADR 末尾的验证清单。

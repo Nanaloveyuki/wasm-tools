@@ -1,3 +1,0 @@
-package example:app;
-let hello = new example:hello {};
-export hello.add;

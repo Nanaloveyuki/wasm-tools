@@ -7,7 +7,6 @@ import {
   "Milky2018/wasm_component" @component,
   "Milky2018/wasm_component/validator" @component_validator,
   "Milky2018/wasm_component/wit" @component_wit,
-  "mizchi/mwac/composer" @composer,
   "moonrockz/wit/decompiler" @decompiler,
   "moonrockz/wit/component_text" @component_text,
   "moonbitlang/core/encoding/utf8",

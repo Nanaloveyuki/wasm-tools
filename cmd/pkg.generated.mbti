@@ -8,8 +8,6 @@ import {
 // Values
 pub async fn cmd_component(Array[String]) -> Int32 raise @cli.CliError
 
-pub async fn cmd_compose(Array[String]) -> Int32 raise @cli.CliError
-
 pub async fn cmd_dump(Array[String]) -> Int32 raise @cli.CliError
 
 pub async fn cmd_metadata(Array[String]) -> Int32 raise @cli.CliError

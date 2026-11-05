@@ -49,7 +49,6 @@ MoonBit 的 wasm 积木已经相当完整：`wasm_core` 提供 core 规范模型
 | `metadata [FILE]` | 展示 name section 与 producers section | 文本或 `--json` |
 | `size [FILE]` | section、函数体大小、直接调用边；支持 `--diff`/`--budget` | 文本或 `--json` |
 | `opt [FILE]` | 调用 `moon-wasm-opt`，默认 `--all-features` | 二进制到 stdout/`-o` |
-| `compose [FILE.wac]` | 按 WAC 组合组件 | 二进制到 stdout/`-o` |
 | `symbolize [FILE] ADDR` | 栈地址 → 函数名/函数内偏移 | 文本或 `--json` |
 | `component wit [FILE]` | 从 component 提取 WIT | stdout 或 `-o FILE` |
 
