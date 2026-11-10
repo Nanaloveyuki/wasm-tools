@@ -30,6 +30,10 @@ pub async fn run(argv : Array[String]) -> Int32 {
       @cli.write_stderr_lossy(@cli.TOOL_NAME + ": " + message + "\n")
       return 1
     }
+    @cli.CliError::Schema(message) => {
+      @cli.write_stderr_lossy(@cli.TOOL_NAME + ": " + message + "\n")
+      return 2
+    }
   }
   result
 }
@@ -58,6 +62,7 @@ async fn dispatch(
     "opt" => cmd_opt(args)
     "symbolize" => cmd_symbolize(args)
     "component" => cmd_component(args)
+    "contract" => cmd_contract(args)
     _ => raise @cli.CliError::Usage("unknown command: " + command)
   }
 }

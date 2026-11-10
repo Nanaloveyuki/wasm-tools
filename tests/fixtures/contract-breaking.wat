@@ -1,0 +1,2 @@
+(module
+  (func (export "sub")))

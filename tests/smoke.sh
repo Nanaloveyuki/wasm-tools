@@ -7,6 +7,11 @@ wsm="$root/run.sh"
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 
+(cd "$root" && moon build examples --target wasm >/dev/null)
+(cd "$root" && moon build examples --target wasm-gc >/dev/null)
+(cd "$root" && moon build examples/contract-breaking --target wasm >/dev/null)
+(cd "$root" && moon build examples/contract-breaking --target wasm-gc >/dev/null)
+
 expect() {
   name=$1 expected_code=$2 expected_text=$3
   shift 3
@@ -30,11 +35,29 @@ expect() {
   echo "ok   $name"
 }
 
-expect version 0 'wsm 0.4.2' "$wsm" --version
+expect version 0 'wsm 0.5.0' "$wsm" --version
 expect help 0 'Usage: wsm <COMMAND>' "$wsm" --help
 
 "$wsm" parse fixtures/hello.wat -o "$tmp/hello.wasm"
 expect validate-core 0 'valid core module (74 bytes)' "$wsm" validate "$tmp/hello.wasm"
+"$wsm" contract snapshot "$tmp/hello.wasm" -o "$tmp/hello.abi.json"
+expect contract-snapshot 0 '"format_version":1' cat "$tmp/hello.abi.json"
+expect contract-check 0 'provided: compatible' "$wsm" contract check --baseline "$tmp/hello.abi.json" "$tmp/hello.wasm" --direction both
+expect contract-check-json 0 '"status":"compatible"' "$wsm" contract check --baseline "$tmp/hello.abi.json" "$tmp/hello.wasm" --direction both --json
+"$wsm" parse fixtures/contract-breaking.wat -o "$tmp/contract-breaking.wasm"
+expect contract-breaking 1 'breaking' "$wsm" contract check --baseline "$tmp/hello.abi.json" "$tmp/contract-breaking.wasm" --direction provided
+"$wsm" contract snapshot "$root/_build/wasm/debug/build/examples/examples.wasm" -o "$tmp/moon-wasm.abi.json"
+"$wsm" contract snapshot "$root/_build/wasm-gc/debug/build/examples/examples.wasm" -o "$tmp/moon-wasm-gc.abi.json"
+"$wsm" contract snapshot "$root/_build/wasm/debug/build/examples/contract-breaking/contract-breaking.wasm" -o "$tmp/moon-breaking.abi.json"
+"$wsm" contract snapshot "$root/_build/wasm-gc/debug/build/examples/contract-breaking/contract-breaking.wasm" -o "$tmp/moon-breaking-gc.abi.json"
+expect moon-wasm-contract 0 '"params":["i32","i32"]' cat "$tmp/moon-wasm.abi.json"
+expect moon-wasm-gc-contract 0 '"params":["i32","i32"]' cat "$tmp/moon-wasm-gc.abi.json"
+expect moon-breaking-signature 0 '"params":["i32","i32","i32"]' cat "$tmp/moon-breaking.abi.json"
+expect moon-wasm-gc-compatible 0 'provided: compatible' "$wsm" contract check --baseline "$tmp/moon-wasm.abi.json" "$root/_build/wasm-gc/debug/build/examples/examples.wasm" --direction both
+expect moon-breaking-contract 1 'breaking' "$wsm" contract check --baseline "$tmp/moon-wasm.abi.json" "$root/_build/wasm/debug/build/examples/contract-breaking/contract-breaking.wasm" --direction provided
+expect moon-breaking-gc-contract 1 'breaking' "$wsm" contract check --baseline "$tmp/moon-wasm-gc.abi.json" "$root/_build/wasm-gc/debug/build/examples/contract-breaking/contract-breaking.wasm" --direction provided
+printf '%s\n' '{"format_version":2,"imports":[],"exports":[],"diagnostics":[]}' > "$tmp/invalid.abi.json"
+expect contract-invalid-schema 2 'unsupported snapshot format version' "$wsm" contract check --baseline "$tmp/invalid.abi.json" "$tmp/hello.wasm"
 expect print-core 0 '(module' "$wsm" print "$tmp/hello.wasm"
 expect dump-core 0 'code' "$wsm" dump "$tmp/hello.wasm"
 expect size-core 0 'call graph' "$wsm" size "$tmp/hello.wasm"

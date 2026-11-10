@@ -4,7 +4,7 @@ package "Nanaloveyuki/wasm-tools/cli"
 // Values
 pub const TOOL_NAME : String = "wsm"
 
-pub const VERSION : String = "0.4.2"
+pub const VERSION : String = "0.5.0"
 
 pub fn help_text() -> String
 
@@ -36,6 +36,7 @@ pub(all) suberror CliError {
   Io(String)
   Invalid(String)
   Unsupported(String)
+  Schema(String)
 }
 pub fn CliError::exit_code(Self) -> Int32
 pub fn CliError::message(Self) -> String

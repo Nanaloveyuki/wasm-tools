@@ -5,6 +5,7 @@ pub(all) suberror CliError {
   Io(String)
   Invalid(String)
   Unsupported(String)
+  Schema(String)
 }
 
 ///|
@@ -14,13 +15,14 @@ pub fn CliError::message(self : CliError) -> String {
     Io(m) => m
     Invalid(m) => m
     Unsupported(m) => m
+    Schema(m) => m
   }
 }
 
 ///|
 pub fn CliError::exit_code(self : CliError) -> Int32 {
   match self {
-    Usage(_) | Io(_) => 2
+    Usage(_) | Io(_) | Schema(_) => 2
     Invalid(_) | Unsupported(_) => 1
   }
 }

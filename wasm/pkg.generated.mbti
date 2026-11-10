@@ -3,6 +3,7 @@ package "Nanaloveyuki/wasm-tools/wasm"
 
 import {
   "Nanaloveyuki/wasm-tools/cli",
+  "Nanaloveyuki/wasm-tools/contract",
   "moonbitlang/core/ref",
 }
 
@@ -12,6 +13,8 @@ pub fn component_to_wat(Bytes) -> String raise @cli.CliError
 pub fn component_to_wit(Bytes) -> String raise @cli.CliError
 
 pub fn component_wat_to_binary(String) -> Bytes raise @cli.CliError
+
+pub fn contract_snapshot(Bytes) -> @contract.Snapshot raise @cli.CliError
 
 pub fn core_to_wat(Bytes) -> String raise @cli.CliError
 

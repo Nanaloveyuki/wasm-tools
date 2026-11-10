@@ -1,0 +1,115 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "Nanaloveyuki/wasm-tools/contract"
+
+// Values
+pub const SNAPSHOT_FORMAT_VERSION : Int32 = 1
+
+pub fn compare_snapshots(Snapshot, Snapshot, Direction) -> Report
+
+pub fn direction_name(Direction) -> String
+
+pub fn parse_snapshot(String) -> Snapshot raise SnapshotError
+
+pub fn report_json(Report) -> String
+
+pub fn report_text(Report) -> String
+
+pub fn snapshot_json(Snapshot) -> String
+
+pub fn status_name(Status) -> String
+
+// Errors
+pub(all) suberror SnapshotError {
+  Invalid(String)
+}
+pub fn SnapshotError::message(Self) -> String
+
+// Types and methods
+pub(all) struct Change {
+  key : String
+  status : Status
+  detail : String
+} derive(Eq)
+pub fn Change::equal(Self, Self) -> Bool
+pub fn Change::not_equal(Self, Self) -> Bool
+
+pub(all) enum Direction {
+  Provided
+  Required
+  Both
+} derive(Eq)
+pub fn Direction::equal(Self, Self) -> Bool
+pub fn Direction::not_equal(Self, Self) -> Bool
+
+pub(all) struct DirectionReport {
+  direction : Direction
+  status : Status
+  changes : Array[Change]
+} derive(Eq)
+pub fn DirectionReport::equal(Self, Self) -> Bool
+pub fn DirectionReport::not_equal(Self, Self) -> Bool
+
+pub(all) struct Entry {
+  import_module : String?
+  name : String
+  kind : ExternalKind
+  type_ : ExternalType
+} derive(Eq)
+pub fn Entry::equal(Self, Self) -> Bool
+pub fn Entry::not_equal(Self, Self) -> Bool
+
+pub(all) enum ExternalKind {
+  Function
+  Table
+  Memory
+  Global
+  Tag
+} derive(Eq)
+pub fn ExternalKind::equal(Self, Self) -> Bool
+pub fn ExternalKind::not_equal(Self, Self) -> Bool
+
+pub(all) enum ExternalType {
+  Function(Array[String], Array[String])
+  Table(String, Limits, Bool)
+  Memory(Limits, Bool, Bool, Int32)
+  Global(String, Bool)
+  Tag(Array[String])
+  Unsupported(String)
+} derive(Eq)
+pub fn ExternalType::equal(Self, Self) -> Bool
+pub fn ExternalType::not_equal(Self, Self) -> Bool
+
+pub(all) struct Limits {
+  minimum : Int64
+  maximum : Int64?
+} derive(Eq)
+pub fn Limits::equal(Self, Self) -> Bool
+pub fn Limits::not_equal(Self, Self) -> Bool
+
+pub(all) struct Report {
+  reports : Array[DirectionReport]
+} derive(Eq)
+pub fn Report::equal(Self, Self) -> Bool
+pub fn Report::not_equal(Self, Self) -> Bool
+
+pub(all) struct Snapshot {
+  format_version : Int32
+  imports : Array[Entry]
+  exports : Array[Entry]
+  diagnostics : Array[String]
+} derive(Eq)
+pub fn Snapshot::equal(Self, Self) -> Bool
+pub fn Snapshot::new(Array[Entry], Array[Entry]) -> Self
+pub fn Snapshot::not_equal(Self, Self) -> Bool
+
+pub(all) enum Status {
+  Compatible
+  Unknown
+  Breaking
+} derive(Eq)
+pub fn Status::equal(Self, Self) -> Bool
+pub fn Status::not_equal(Self, Self) -> Bool
+
+// Type aliases
+
+// Traits

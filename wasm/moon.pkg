@@ -4,6 +4,7 @@ import {
   "Milky2018/wasm_core/wat" @core_wat,
   "Milky2018/wasm_core/encoder" @core_encoder,
   "Milky2018/wasm_core/validator" @core_validator,
+  "Milky2018/wasm_core/types" @core_types,
   "Milky2018/wasm_component" @component,
   "Milky2018/wasm_component/validator" @component_validator,
   "Milky2018/wasm_component/wit" @component_wit,
@@ -14,6 +15,7 @@ import {
   "moonbitlang/async/fs",
   "moonbitlang/async/process",
   "moonbitlang/core/env",
+  "Nanaloveyuki/wasm-tools/contract",
 }
 
 import {

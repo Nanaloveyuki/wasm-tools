@@ -22,6 +22,14 @@ $ ../run.sh parse fixtures/hello.wat -o hello.wasm
 $ ../run.sh validate hello.wasm
 valid core module (74 bytes)
 
+$ ../run.sh contract snapshot hello.wasm -o hello.abi.json
+
+$ ../run.sh contract check --baseline hello.abi.json hello.wasm --direction both
+provided: compatible
+  no interface changes
+required: compatible
+  no interface changes
+
 $ ../run.sh print hello.wasm
 (module
   (type (;0;) (func (param i32) (param i32) (result i32)))

@@ -1,7 +1,7 @@
 ///|
 pub fn help_text() -> String {
   let text =
-    #|wsm - WebAssembly binary toolkit
+    #|wsm - WebAssembly contract and binary tools
     #|
     #|Usage: wsm <COMMAND> [OPTIONS] [FILE]
     #|
@@ -16,6 +16,8 @@ pub fn help_text() -> String {
     #|  opt [FILE]             Optimize with moon-wasm-opt (-Oz, --passes)
     #|  symbolize [FILE] ADDR  Map a wasm stack address to a function name
     #|  component wit [FILE]   Extract the WIT package from a component
+    #|  contract snapshot      Write a contract snapshot as JSON
+    #|  contract check         Compare a module with a snapshot
     #|  help                   Show this message
     #|
     #|Common options:
