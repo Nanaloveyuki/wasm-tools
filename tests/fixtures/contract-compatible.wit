@@ -1,0 +1,10 @@
+package demo:calc@1.1.0;
+
+interface api {
+  ping: func(value: u32) -> u32;
+}
+
+world cli {
+  import api;
+  import log: func(message: string);
+}

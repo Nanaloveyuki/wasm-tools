@@ -4,11 +4,17 @@ package "Nanaloveyuki/wasm-tools/contract"
 // Values
 pub const SNAPSHOT_FORMAT_VERSION : Int32 = 1
 
+pub const WIT_SNAPSHOT_FORMAT_VERSION : Int32 = 1
+
 pub fn compare_snapshots(Snapshot, Snapshot, Direction) -> Report
+
+pub fn compare_wit_snapshots(WitSnapshot, WitSnapshot) -> WitReport
 
 pub fn direction_name(Direction) -> String
 
 pub fn parse_snapshot(String) -> Snapshot raise SnapshotError
+
+pub fn parse_wit_snapshot(String) -> WitSnapshot raise SnapshotError
 
 pub fn report_json(Report) -> String
 
@@ -17,6 +23,12 @@ pub fn report_text(Report) -> String
 pub fn snapshot_json(Snapshot) -> String
 
 pub fn status_name(Status) -> String
+
+pub fn wit_report_json(WitReport) -> String
+
+pub fn wit_report_text(WitReport) -> String
+
+pub fn wit_snapshot_json(WitSnapshot) -> String
 
 // Errors
 pub(all) suberror SnapshotError {
@@ -109,6 +121,39 @@ pub(all) enum Status {
 } derive(Eq)
 pub fn Status::equal(Self, Self) -> Bool
 pub fn Status::not_equal(Self, Self) -> Bool
+
+pub(all) struct WitEntry {
+  name : String
+  kind : String
+  signature : String
+} derive(Eq)
+pub fn WitEntry::equal(Self, Self) -> Bool
+pub fn WitEntry::not_equal(Self, Self) -> Bool
+
+pub(all) struct WitReport {
+  namespace_name : String
+  package_name : String
+  baseline_version : String?
+  candidate_version : String?
+  world : String
+  status : Status
+  changes : Array[Change]
+} derive(Eq)
+pub fn WitReport::equal(Self, Self) -> Bool
+pub fn WitReport::not_equal(Self, Self) -> Bool
+
+pub(all) struct WitSnapshot {
+  format_version : Int32
+  namespace_name : String
+  package_name : String
+  package_version : String?
+  world : String
+  imports : Array[WitEntry]
+  exports : Array[WitEntry]
+} derive(Eq)
+pub fn WitSnapshot::equal(Self, Self) -> Bool
+pub fn WitSnapshot::new(String, String, String?, String, Array[WitEntry], Array[WitEntry]) -> Self
+pub fn WitSnapshot::not_equal(Self, Self) -> Bool
 
 // Type aliases
 

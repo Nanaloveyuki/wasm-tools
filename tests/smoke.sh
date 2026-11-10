@@ -44,6 +44,10 @@ expect validate-core 0 'valid core module (74 bytes)' "$wsm" validate "$tmp/hell
 expect contract-snapshot 0 '"format_version":1' cat "$tmp/hello.abi.json"
 expect contract-check 0 'provided: compatible' "$wsm" contract check --baseline "$tmp/hello.abi.json" "$tmp/hello.wasm" --direction both
 expect contract-check-json 0 '"status":"compatible"' "$wsm" contract check --baseline "$tmp/hello.abi.json" "$tmp/hello.wasm" --direction both --json
+"$wsm" contract wit snapshot --world cli "$root/tests/fixtures/contract.wit" -o "$tmp/contract.wit.json"
+expect contract-wit-snapshot 0 '"world":"cli"' cat "$tmp/contract.wit.json"
+expect contract-wit-compatible 0 'compatible' "$wsm" contract wit check --world cli --baseline "$tmp/contract.wit.json" "$root/tests/fixtures/contract-compatible.wit"
+expect contract-wit-breaking 1 'breaking' "$wsm" contract wit check --world cli --baseline "$tmp/contract.wit.json" "$root/tests/fixtures/contract-breaking.wit"
 "$wsm" parse fixtures/contract-breaking.wat -o "$tmp/contract-breaking.wasm"
 expect contract-breaking 1 'breaking' "$wsm" contract check --baseline "$tmp/hello.abi.json" "$tmp/contract-breaking.wasm" --direction provided
 "$wsm" contract snapshot "$root/_build/wasm/debug/build/examples/examples.wasm" -o "$tmp/moon-wasm.abi.json"

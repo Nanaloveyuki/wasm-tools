@@ -10,6 +10,8 @@ import {
   "Milky2018/wasm_component/wit" @component_wit,
   "moonrockz/wit/decompiler",
   "moonrockz/wit/component_text",
+  "moonrockz/wit/parser" @wit_parser,
+  "moonrockz/wit/verifier" @wit_verifier,
   "moonbitlang/core/encoding/utf8",
   "moonbitlang/core/string" @str,
   "moonbitlang/async/fs",

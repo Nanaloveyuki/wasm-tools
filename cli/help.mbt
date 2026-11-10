@@ -16,8 +16,9 @@ pub fn help_text() -> String {
     #|  opt [FILE]             Optimize with moon-wasm-opt (-Oz, --passes)
     #|  symbolize [FILE] ADDR  Map a wasm stack address to a function name
     #|  component wit [FILE]   Extract the WIT package from a component
-    #|  contract snapshot      Write a contract snapshot as JSON
-    #|  contract check         Compare a module with a snapshot
+    #|  contract snapshot      Write a Core ABI snapshot as JSON
+    #|  contract check         Compare a module with a Core ABI snapshot
+    #|  contract wit           Snapshot/check a selected WIT world
     #|  help                   Show this message
     #|
     #|Common options:

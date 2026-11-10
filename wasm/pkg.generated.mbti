@@ -84,6 +84,8 @@ pub fn validate_core(Bytes) -> Unit raise @cli.CliError
 
 pub fn wat_to_core(String) -> Bytes raise @cli.CliError
 
+pub fn wit_world_snapshot(Bytes, String) -> @contract.WitSnapshot raise @cli.CliError
+
 // Errors
 
 // Types and methods
