@@ -33,6 +33,8 @@ wsm validate app.wasm
 | `component wit [FILE]` | 从 component 提取内嵌 WIT 包 |
 | `contract snapshot [FILE]` | 从 Core WASM 模块生成确定性 ABI 快照 |
 | `contract check --baseline SNAPSHOT FILE` | 按提供接口、依赖接口或两个方向比较兼容性 |
+| `contract wit snapshot --world NAME [FILE]` | 从 WIT 源文件生成选定 world 的快照 |
+| `contract wit check --world NAME --baseline SNAPSHOT FILE` | 比较 WIT world 的 SemVer 兼容性 |
 
 通用约定：
 
@@ -55,6 +57,8 @@ wsm symbolize app.wasm 'wasm-function[34]:0xd8d'
 wsm symbolize --json app.wasm 0xd8d
 wsm contract snapshot app.wasm -o app.abi.json
 wsm contract check --baseline old.abi.json app.wasm --direction both
+wsm contract wit snapshot --world cli app.wit -o app.wit.json
+wsm contract wit check --world cli --baseline old.wit.json app-v2.wit
 cat app.wasm | wsm validate -
 ```
 
@@ -65,7 +69,8 @@ cat app.wasm | wsm validate -
 - `contract snapshot FILE` 输出带 `format_version` 的稳定 JSON；接口按名称、种类及结构化类型表示，不用 WASM 类型索引作为身份。
 - `contract check --baseline BASELINE FILE` 输出逐项变化。`provided` 检查候选产物能否继续满足旧调用方；`required` 检查旧宿主能否满足候选产物的新导入需求；默认 `both` 分开报告两个方向。
 - `breaking` 与 `unknown` 均默认返回退出码 1。带类型化引用等当前无法安全比较的接口会报告 `unknown`，不会静默判兼容。
-- MVP 支持 Core WASM，包括 `wasm` 与 `wasm-gc` 产物；Component/WIT、GC 递归类型兼容和子类型推导暂不在支持范围。
+- Core ABI MVP 支持 `wasm` 与 `wasm-gc` 产物。WIT MVP 直接处理 WIT 源文件并要求显式选择 world；它不从任意 Component 二进制推断 package/world，也不覆盖 Component 二进制中的 WIT 抽取。未能安全规范化的 WIT 结构返回 `unknown`。
+- WIT world 比较忽略 package 版本与源码声明顺序；候选 world 增加 imports、移除 exports 可兼容，移除 imports、增加 exports 或改变同名项类型为 breaking。首版不推导同名项内部的方差子类型；未能规范化或受 `@unstable` gate 影响的 item 返回 `unknown`，带 gate 的 world 无法快照。
 - `contract` 包提供与 CLI/解析器类型无关的快照和比较 API；`wasm` 包负责把二进制解析结果规范化为该模型。
 
 ```moonbit
@@ -83,7 +88,7 @@ let report = @contract.compare_snapshots(
 - core module 走 `Milky2018/wasm_core`（解析、验证、WAT 双向、编码）
 - component 走 `Milky2018/wasm_component`（解析、验证、WIT）
 - component → WAT 走 `moonrockz/wit/decompiler`
-- WIT/WAC 的 parse/format/verify 交给 `moonx moonrockz/wasm-devkit`
+- WIT/WAC 通用 parse/format/verify 交给 `moonx moonrockz/wasm-devkit`；WIT 契约命令复用 `moonrockz/wit` parser/verifier API 并使用项目自有的快照与比较模型
 - 优化交给工具链自带的 `moon-wasm-opt`；`opt` 只做参数映射与产物校验，不实现 pass
 
 不做：运行时/JIT、优化 pass、WIT/WAC 语言工具、`smith`/`mutate`/`shrink`、
@@ -109,7 +114,7 @@ let report = @contract.compare_snapshots(
 | 0.2.0 | component 感知的 dump/metadata；`size` v1（section、函数、调用图） |
 | 0.3.0 | `opt`（包装 `moon-wasm-opt`）；`size --diff`/`--budget` |
 | 0.4.2（当前） | `symbolize`（name section 符号化）；`compose` 因上游依赖阻塞 |
-| 0.5.0（当前开发） | 契约模型、Core WASM ABI 快照、`provided` / `required` / `both` 兼容检查 |
+| 0.5.0（当前开发） | Core ABI 与显式 WIT world 快照、方向性兼容检查及 WIT SemVer 检查 |
 
 详细决策与验证标准见 [ADR 索引](docs/adr/README.md)。
 
@@ -123,7 +128,7 @@ tests/win-smoke.sh             # Windows 侧检查（WSL interop，需 WIN_MOONR
 ```
 
 `./run.sh` 用本地 wasm 构建运行 CLI，`tests/smoke.sh` 依赖它，并会构建样例库的
-`wasm`/`wasm-gc` 产物，验证真实导出接口的快照与兼容检查。
+`wasm`/`wasm-gc` 产物，验证真实导出接口的快照与兼容检查，并覆盖 WIT 源文件到 world 快照的 CLI 路径。
 
 ## 结构
 
