@@ -1,6 +1,6 @@
 # 0001 CLI 定位、首版命令面与非目标
 
-- Status: Accepted
+- Status: Partially superseded by 0005
 - Date: 2026-11-04
 - Supersedes: —
 

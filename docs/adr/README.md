@@ -9,6 +9,11 @@
 | [0002](0002-dependency-selection.md) | 依赖选择、实测边界与上游协作 |
 | [0003](0003-module-layout-and-delivery.md) | 模块布局、moonx 发布约束与交付顺序 |
 | [0004](0004-post-0.1-roadmap.md) | 0.2.0–0.4.0：component 结构、size、opt、compose、addr2line |
+| [0005](0005-contract-product-scope.md) | 产品主线转向 WASM 契约兼容性检查 |
+| [0006](0006-contract-model-and-boundaries.md) | 契约快照模型、解析适配层与 MVP 边界 |
+| [0007](0007-compatibility-semantics.md) | 提供接口/依赖接口的方向性兼容规则 |
+| [0008](0008-contract-cli-and-snapshot-format.md) | 快照格式、CLI 行为与退出码 |
+| [0009](0009-contract-verification.md) | 兼容性实现的验证与交付标准 |
 
 ## 写法
 
