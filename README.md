@@ -152,7 +152,7 @@ WIT/WAC 语言工具、`smith`/`mutate`/`shrink`、
 
 | 项目 | 值 |
 |---|---|
-| Mooncakes | 已发布 `Nanaloveyuki/wasm-tools@0.4.2`；工作树版本 `0.5.0` 尚未发布 |
+| Mooncakes | `Nanaloveyuki/wasm-tools@0.5.0` |
 | CI | GitHub Actions，Ubuntu / macOS / Windows 三平台 |
 | 测试 | 单元测试 + Linux CLI / MoonBit 产物演示 + Windows CLI（moonrun interop） |
 | 许可证 | Apache-2.0 |
@@ -165,7 +165,7 @@ WIT/WAC 语言工具、`smith`/`mutate`/`shrink`、
 | 0.2.0 | component 感知的 dump/metadata；`size` v1（section、函数、调用图） |
 | 0.3.0 | `opt`（包装 `moon-wasm-opt`）；`size --diff`/`--budget` |
 | 0.4.2（当前） | `symbolize`（name section 符号化）；`compose` 因上游依赖阻塞 |
-| 0.5.0（当前开发） | Core ABI 与显式 WIT world 快照、方向性兼容检查及 WIT SemVer 检查 |
+| 0.5.0 | Core ABI 与显式 WIT world 快照、方向性兼容检查及 WIT SemVer 检查 |
 
 详细决策与验证标准见 [ADR 索引](docs/adr/README.md)。
 
