@@ -12,7 +12,7 @@ Core ABI MVP 已验证。WIT 为 Component Model 用户提供比二进制外部�
 
 WIT 的兼容判定不等于 Core ABI 的集合比较。Bytecode Alliance `wasm-tools` 的 `wit-component::semver_check` 以 Component Model 类型验证执行 WIT world 子类型检查：版本号不参与结构比较，候选 world 可增加 imports、减少 exports；同名项必须通过组件类型兼容关系。WIT 规范也定义 `@since`、`@unstable` 和 `@deprecated` 的语义，但首版不把 feature-gate 发布策略扩展成另一个 SemVer policy engine。
 
-当前 `wasm_component/wit` 的 component 二进制 WIT 解码器文档限定为 type-only package shape；不能据此承诺任意 component 二进制都能唯一恢复完整 source WIT 或自动选择目标 world。
+当前 `wasm_component/wit` 的 component 二进制 WIT 解码器文档限定为 type-only package shape，且实现是 best-effort：部分非目标 wrapper、奇数/越界 type index 会被跳过，一些不能恢复的类型会退化成 `other`。这对展示尽力恢复的 WIT 文本有用，但不能用来生成兼容快照，否则遗漏的接口会被误当成真实删除。不能据此承诺任意 component 二进制都能唯一恢复完整 source WIT 或自动选择目标 world。
 
 ## Decision
 
@@ -23,6 +23,7 @@ WIT 的兼容判定不等于 Core ABI 的集合比较。Bytecode Alliance `wasm-
 - 使用上游 `wasm-tools` 的公开算法和 WIT 规范作为语义参考及独立测试向量来源；不在运行时依赖其 Rust 工具或复制其实现代码。
 - 当前不 vendor。若明确的上游缺陷或缺失能力阻塞已确定的验收路径，且已向上游报告、经过两个发布周期或 90 天仍无可用修复，可临时 vendor Apache-2.0 许可的最小源码子集。保留版权、许可证、来源版本、差异和回迁说明，并将 vendored 部分限制在必要修复范围；上游发布可用修复后，迁回依赖并删除本地副本。
 - WIT source snapshot 与 check 是本阶段交付；Component 二进制 metadata 中 WIT 的选择/抽取作为单独后续议题，待出现稳定场景和可验证规则后再决定。
+- Component 二进制快照必须等到提取完整性可以验证后再实现；不能直接把当前 best-effort decoder 的输出接入兼容比较器。后续议题：[Component 内嵌 WIT 契约提取完整性 #7](https://github.com/Nanaloveyuki/wasm-tools/issues/7)。
 
 ## Consequences
 
