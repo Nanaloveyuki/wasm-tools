@@ -23,13 +23,16 @@ jobs:
       - name: Update registry index
         run: moon update
 
+      - name: Check all compilation targets
+        run: moon check --target all
+
       - name: Build wasm target
         run: moon build --target wasm --release
 
       - name: Unit tests
         run: moon test
 
-      - name: CLI smoke (Linux)
+      - name: CLI and contract smoke (Linux)
         if: runner.os == 'Linux'
         shell: bash
         run: |

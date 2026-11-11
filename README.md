@@ -2,7 +2,9 @@
 
 面向 MoonBit WASM 发布产物的接口契约快照与兼容性检查工具。项目自有的契约模型、
 快照格式和方向性比较器用于回答“新产物是否仍满足旧调用方/宿主的接口要求”；
-现有二进制命令作为辅助能力保留。命令别名为 `wsm`。
+这是项目的主要能力。解析与验证复用 MoonBit 生态依赖，本项目实现契约提取后的稳定
+规范化、方向性兼容判定、差异报告和 fail-closed 结果；通用二进制命令作为辅助能力保留。
+命令别名为 `wsm`。
 
 模块只声明 wasm target；`moonx` 是本工具的正式入口。
 
@@ -10,14 +12,60 @@
 
 ```sh
 # 无需安装，直接运行
-moonx Nanaloveyuki/wasm-tools validate app.wasm
+moonx Nanaloveyuki/wasm-tools contract snapshot app.wasm -o app.abi.json
+moonx Nanaloveyuki/wasm-tools contract check --baseline app.abi.json app-next.wasm --direction both
 
 # 想要短命令，可以自己包一层
 alias wsm='moonx Nanaloveyuki/wasm-tools'
-wsm validate app.wasm
+wsm contract snapshot app.wasm -o app.abi.json
+wsm contract check --baseline app.abi.json app-next.wasm --direction both
 ```
 
-## 命令
+## 快速体验：检查 MoonBit 发布产物
+
+运行完整演示：
+
+```sh
+./tests/contract-demo.sh
+```
+
+脚本用 MoonBit 编译器实际生成 `wasm` 与 `wasm-gc` 产物：基线导出两参数 `add`，同一
+接口的跨目标产物应兼容；候选版本把 `add` 改为三参数，面向旧调用方的 `provided` 检查
+应报告 breaking 并以退出码 1 结束。脚本会构建 CLI、生成快照并检查两种目标的结果，Linux
+CI 也运行同一演示。
+
+典型结果：
+
+```text
+provided: compatible
+required: compatible
+provided: breaking
+  breaking  export add (function): export type changed
+```
+
+## 契约命令
+
+主工作流围绕可提交、可复用的 JSON 基线：
+
+```sh
+wsm contract snapshot app.wasm -o app.abi.json
+wsm contract check --baseline app.abi.json app-next.wasm --direction both
+wsm contract wit snapshot --world cli app.wit -o app.wit.json
+wsm contract wit check --world cli --baseline app.wit.json app-next.wit
+```
+
+| 命令 | 作用 |
+|---|---|
+| `contract snapshot [FILE]` | 从 Core WASM 模块生成确定性 ABI 快照 |
+| `contract check --baseline SNAPSHOT FILE` | 按提供接口、依赖接口或两个方向比较兼容性 |
+| `contract wit snapshot --world NAME [FILE]` | 从 WIT 源文件生成选定 world 的快照 |
+| `contract wit check --world NAME --baseline SNAPSHOT FILE` | 比较 WIT world 的 SemVer 兼容性 |
+
+比较输出区分 `provided`（新产物是否继续满足旧调用方）与 `required`（旧宿主能否满足新
+产物的导入需求）。破坏性变化和当前无法安全比较的结构 `unknown` 都返回非零状态；调用方
+可以据此阻止不安全发布或要求人工处理。
+
+## 辅助 WASM 命令
 
 | 命令 | 作用 |
 |---|---|
@@ -31,10 +79,6 @@ wsm validate app.wasm
 | `opt [FILE]` | 调用 `moon-wasm-opt` 优化；`-O2`/`-Oz`、`--passes`、`--wasm-opt PATH` |
 | `symbolize [FILE] ADDR` | 把 `wasm-function[N]:0xOFF` 映射到函数名与函数内偏移 |
 | `component wit [FILE]` | 从 component 提取内嵌 WIT 包 |
-| `contract snapshot [FILE]` | 从 Core WASM 模块生成确定性 ABI 快照 |
-| `contract check --baseline SNAPSHOT FILE` | 按提供接口、依赖接口或两个方向比较兼容性 |
-| `contract wit snapshot --world NAME [FILE]` | 从 WIT 源文件生成选定 world 的快照 |
-| `contract wit check --world NAME --baseline SNAPSHOT FILE` | 比较 WIT world 的 SemVer 兼容性 |
 
 通用约定：
 
@@ -55,10 +99,6 @@ wsm size app.wasm --budget 200KB
 wsm opt app.wasm -Oz -o app.opt.wasm
 wsm symbolize app.wasm 'wasm-function[34]:0xd8d'
 wsm symbolize --json app.wasm 0xd8d
-wsm contract snapshot app.wasm -o app.abi.json
-wsm contract check --baseline old.abi.json app.wasm --direction both
-wsm contract wit snapshot --world cli app.wit -o app.wit.json
-wsm contract wit check --world cli --baseline old.wit.json app-v2.wit
 cat app.wasm | wsm validate -
 ```
 
@@ -83,7 +123,17 @@ let report = @contract.compare_snapshots(
 )
 ```
 
-现有二进制命令：
+## 实现边界与独立贡献
+
+- `contract` 包定义独立于 CLI 和上游 AST 的契约模型、版本化快照、稳定身份与兼容报告。
+- `wasm` 适配层把解析出的外部类型规范化为项目模型；类型段索引和无关 section 顺序不作为
+  ABI 身份。
+- 本项目实现 `provided` / `required` 方向规则、变化分类和 `breaking` / `unknown` 判定。未
+  建模的结构明确报告 `unknown`，不会因解析成功就默认兼容。
+- Core WASM 的真实 `wasm` / `wasm-gc` 产物以及 WIT 源文件均有快照和兼容检查路径；演示脚本
+  与单元测试覆盖这些结果。
+
+解析/验证与项目自研逻辑的边界如下：
 
 - core module 走 `Milky2018/wasm_core`（解析、验证、WAT 双向、编码）
 - component 走 `Milky2018/wasm_component`（解析、验证、WIT）
@@ -91,7 +141,8 @@ let report = @contract.compare_snapshots(
 - WIT/WAC 通用 parse/format/verify 交给 `moonx moonrockz/wasm-devkit`；WIT 契约命令复用 `moonrockz/wit` parser/verifier API 并使用项目自有的快照与比较模型
 - 优化交给工具链自带的 `moon-wasm-opt`；`opt` 只做参数映射与产物校验，不实现 pass
 
-不做：运行时/JIT、优化 pass、WIT/WAC 语言工具、`smith`/`mutate`/`shrink`、
+通用命令是生态库能力的入口与集成，不计作契约分析的独立贡献。不做：运行时/JIT、优化 pass、
+WIT/WAC 语言工具、`smith`/`mutate`/`shrink`、
 `component new`/`embed`。设计理由见 [docs/adr](docs/adr/README.md)。
 
 `dump`/`metadata` 对 component 使用独立的 section id 表；`size` 对 component
@@ -103,7 +154,7 @@ let report = @contract.compare_snapshots(
 |---|---|
 | Mooncakes | 已发布 `Nanaloveyuki/wasm-tools@0.4.2`；工作树版本 `0.5.0` 尚未发布 |
 | CI | GitHub Actions，Ubuntu / macOS / Windows 三平台 |
-| 测试 | 单元测试 + Linux CLI + Windows CLI（moonrun interop） |
+| 测试 | 单元测试 + Linux CLI / MoonBit 产物演示 + Windows CLI（moonrun interop） |
 | 许可证 | Apache-2.0 |
 
 ## 路线
@@ -122,13 +173,15 @@ let report = @contract.compare_snapshots(
 
 ```sh
 moon build --target wasm       # 生成 _build/wasm/debug/build/wasm-tools.wasm
+moon check --target all        # 检查所有支持的编译后端
 moon test                      # 单元测试
+./tests/contract-demo.sh       # 真实 wasm / wasm-gc 契约兼容演示
 ./tests/smoke.sh               # CLI 行为检查（Linux）
 tests/win-smoke.sh             # Windows 侧检查（WSL interop，需 WIN_MOONRUN/WIN_WASM_OPT）
 ```
 
-`./run.sh` 用本地 wasm 构建运行 CLI，`tests/smoke.sh` 依赖它，并会构建样例库的
-`wasm`/`wasm-gc` 产物，验证真实导出接口的快照与兼容检查，并覆盖 WIT 源文件到 world 快照的 CLI 路径。
+`./run.sh` 用本地 wasm 构建运行 CLI。契约演示可以独立运行；`tests/smoke.sh` 也会运行该演示，
+再覆盖 WIT 源文件到 world 快照的 CLI 路径。
 
 ## 结构
 
