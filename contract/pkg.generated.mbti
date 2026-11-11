@@ -37,49 +37,55 @@ pub(all) suberror SnapshotError {
 pub fn SnapshotError::message(Self) -> String
 
 // Types and methods
+#derive(Eq)
 pub(all) struct Change {
   key : String
   status : Status
   detail : String
-} derive(Eq)
+}
 pub fn Change::equal(Self, Self) -> Bool
 pub fn Change::not_equal(Self, Self) -> Bool
 
+#derive(Eq)
 pub(all) enum Direction {
   Provided
   Required
   Both
-} derive(Eq)
+}
 pub fn Direction::equal(Self, Self) -> Bool
 pub fn Direction::not_equal(Self, Self) -> Bool
 
+#derive(Eq)
 pub(all) struct DirectionReport {
   direction : Direction
   status : Status
   changes : Array[Change]
-} derive(Eq)
+}
 pub fn DirectionReport::equal(Self, Self) -> Bool
 pub fn DirectionReport::not_equal(Self, Self) -> Bool
 
+#derive(Eq)
 pub(all) struct Entry {
   import_module : String?
   name : String
   kind : ExternalKind
   type_ : ExternalType
-} derive(Eq)
+}
 pub fn Entry::equal(Self, Self) -> Bool
 pub fn Entry::not_equal(Self, Self) -> Bool
 
+#derive(Eq)
 pub(all) enum ExternalKind {
   Function
   Table
   Memory
   Global
   Tag
-} derive(Eq)
+}
 pub fn ExternalKind::equal(Self, Self) -> Bool
 pub fn ExternalKind::not_equal(Self, Self) -> Bool
 
+#derive(Eq)
 pub(all) enum ExternalType {
   Function(Array[String], Array[String])
   Table(String, Limits, Bool)
@@ -87,49 +93,55 @@ pub(all) enum ExternalType {
   Global(String, Bool)
   Tag(Array[String])
   Unsupported(String)
-} derive(Eq)
+}
 pub fn ExternalType::equal(Self, Self) -> Bool
 pub fn ExternalType::not_equal(Self, Self) -> Bool
 
+#derive(Eq)
 pub(all) struct Limits {
   minimum : Int64
   maximum : Int64?
-} derive(Eq)
+}
 pub fn Limits::equal(Self, Self) -> Bool
 pub fn Limits::not_equal(Self, Self) -> Bool
 
+#derive(Eq)
 pub(all) struct Report {
   reports : Array[DirectionReport]
-} derive(Eq)
+}
 pub fn Report::equal(Self, Self) -> Bool
 pub fn Report::not_equal(Self, Self) -> Bool
 
+#derive(Eq)
 pub(all) struct Snapshot {
   format_version : Int32
   imports : Array[Entry]
   exports : Array[Entry]
   diagnostics : Array[String]
-} derive(Eq)
+}
 pub fn Snapshot::equal(Self, Self) -> Bool
 pub fn Snapshot::new(Array[Entry], Array[Entry]) -> Self
 pub fn Snapshot::not_equal(Self, Self) -> Bool
 
+#derive(Eq)
 pub(all) enum Status {
   Compatible
   Unknown
   Breaking
-} derive(Eq)
+}
 pub fn Status::equal(Self, Self) -> Bool
 pub fn Status::not_equal(Self, Self) -> Bool
 
+#derive(Eq)
 pub(all) struct WitEntry {
   name : String
   kind : String
   signature : String
-} derive(Eq)
+}
 pub fn WitEntry::equal(Self, Self) -> Bool
 pub fn WitEntry::not_equal(Self, Self) -> Bool
 
+#derive(Eq)
 pub(all) struct WitReport {
   namespace_name : String
   package_name : String
@@ -138,10 +150,11 @@ pub(all) struct WitReport {
   world : String
   status : Status
   changes : Array[Change]
-} derive(Eq)
+}
 pub fn WitReport::equal(Self, Self) -> Bool
 pub fn WitReport::not_equal(Self, Self) -> Bool
 
+#derive(Eq)
 pub(all) struct WitSnapshot {
   format_version : Int32
   namespace_name : String
@@ -150,7 +163,7 @@ pub(all) struct WitSnapshot {
   world : String
   imports : Array[WitEntry]
   exports : Array[WitEntry]
-} derive(Eq)
+}
 pub fn WitSnapshot::equal(Self, Self) -> Bool
 pub fn WitSnapshot::new(String, String, String?, String, Array[WitEntry], Array[WitEntry]) -> Self
 pub fn WitSnapshot::not_equal(Self, Self) -> Bool

@@ -15,9 +15,9 @@ description = "MoonBit WASM contract snapshots and directional compatibility che
 preferred_target = "wasm"
 
 import {
-  "Milky2018/wasm_core@0.18.0",
-  "Milky2018/wasm_component@0.18.0",
-  "moonrockz/wit@0.3.0",
-  "moonbitlang/async@0.22.7",
+  "Milky2018/wasm_core@0.19.0",
+  "Milky2018/wasm_component@0.19.0",
+  "moonrockz/wit@0.4.0",
+  "moonbitlang/async@0.22.9",
   "moonbitlang/x@0.5.7",
 }

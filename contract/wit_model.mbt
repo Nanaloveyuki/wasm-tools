@@ -2,16 +2,18 @@
 pub const WIT_SNAPSHOT_FORMAT_VERSION : Int32 = 1
 
 ///|
+#derive(Eq)
 pub(all) struct WitEntry {
   name : String
   kind : String
   signature : String
-} derive(Eq)
+}
 
 ///|
 pub extend WitEntry with Eq::{equal, not_equal}
 
 ///|
+#derive(Eq)
 pub(all) struct WitSnapshot {
   format_version : Int32
   namespace_name : String
@@ -20,7 +22,7 @@ pub(all) struct WitSnapshot {
   world : String
   imports : Array[WitEntry]
   exports : Array[WitEntry]
-} derive(Eq)
+}
 
 ///|
 pub extend WitSnapshot with Eq::{equal, not_equal}
@@ -46,6 +48,7 @@ pub fn WitSnapshot::new(
 }
 
 ///|
+#derive(Eq)
 pub(all) struct WitReport {
   namespace_name : String
   package_name : String
@@ -54,7 +57,7 @@ pub(all) struct WitReport {
   world : String
   status : Status
   changes : Array[Change]
-} derive(Eq)
+}
 
 ///|
 pub extend WitReport with Eq::{equal, not_equal}

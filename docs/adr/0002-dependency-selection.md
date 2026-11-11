@@ -9,7 +9,7 @@
 社区已有多份 wasm 相关 MoonBit 包，能力重叠但完整度、目标平台和成熟度差异很大。
 选错依赖会导致：wasm 目标编不过、功能缺口自己补、与上游重复维护。
 
-所有结论在 2026-11-04 用 `moon` 0.1.20261029 实际构建验证过，不是从 README 推断的。
+初始结论在 2026-11-04 用 `moon` 0.1.20261029 实际构建验证过，不是从 README 推断的。依赖升级验证记录见文末。
 
 ## Decision
 
@@ -17,11 +17,11 @@
 
 | 包 | 版本 | 用途 | 关键理由 |
 |---|---|---|---|
-| `Milky2018/wasm_core` | 0.18.0 | core 二进制解析/编码/验证/WAT 双向 | 指令枚举约 500 个变体，覆盖 GC/SIMD/atomics；解析器可给出逐指令 `byte_offset` |
-| `Milky2018/wasm_component` | 0.18.0 | component 解析/验证、WIT 解析/编码/解码 | 提供 `decode_wit_package_from_component` 与 `format_package`，正是 `component wit` 需要的 |
-| `moonrockz/wit` | 0.3.0 | **仅** `decompiler`：二进制转 WAT（core + component） | 反编译输出带 offset 的多文档 WAT；index 中 `wasm-devkit` 依赖它 |
+| `Milky2018/wasm_core` | 0.19.0 | core 二进制解析/编码/验证/WAT 双向 | 指令枚举约 500 个变体，覆盖 GC/SIMD/atomics；解析器可给出逐指令 `byte_offset` |
+| `Milky2018/wasm_component` | 0.19.0 | component 解析/验证、WIT 解析/编码/解码 | 提供 `decode_wit_package_from_component` 与 `format_package`，正是 `component wit` 需要的 |
+| `moonrockz/wit` | 0.4.0 | **仅** `decompiler`：二进制转 WAT（core + component） | 反编译输出带 offset 的多文档 WAT；index 中 `wasm-devkit` 依赖它 |
 | ~~`mizchi/mwac`~~ | 0.2.2 | 暂不采用 | 本地可编到 wasm 并完成组合，但其依赖 `mizchi/wit` 在 Mooncakes 构建服务的工具链上编译失败（`Array::to_json` 不存在）；发布后无预编译资产，因此回退 |
-| `moonbitlang/async` | 0.22.7 | 文件、stdio、进程 | `fs`/`stdio`/`process` 支持 wasm；`opt` 用 `process` 调用 `moon-wasm-opt` |
+| `moonbitlang/async` | 0.22.9 | 文件、stdio、进程 | `fs`/`stdio`/`process` 支持 wasm；`opt` 用 `process` 调用 `moon-wasm-opt` |
 
 依赖版本全部固定，升级必须重新跑 ADR 末尾的验证清单。
 
@@ -91,3 +91,24 @@ moon test
 
 若 `starshine` 修复 wasm 构建且其 `passes` 稳定，评估用其内嵌优化替代
 `moon-wasm-opt` 进程调用；两者可并存，由 `--optimizer=moon|internal` 选择。
+
+## Dependency Upgrade Verification (2026-11-11)
+
+直接依赖升级到上表所列版本。新版本要求 MoonBit 0.10.20；使用 `moon`
+0.1.20261104（moonc 0.10.20）完成验证。`moonrockz/wit@0.4.0` 当前仍传递依赖
+`wasm_core` / `wasm_component@0.16.0`，因此依赖树中会与本项目直接采用的 0.19.0
+并存；本次 `moon check`、测试、release 构建及 CLI smoke 均通过。
+
+升级验证命令：
+
+```sh
+moon tree
+moon fmt
+moon info
+moon check --target all
+moon test
+moon test --target wasm
+moon build --target wasm --release
+moon build --target native
+tests/smoke.sh
+```

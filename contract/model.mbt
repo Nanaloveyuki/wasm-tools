@@ -1,45 +1,50 @@
 ///|
+#derive(Eq)
 pub(all) enum Direction {
   Provided
   Required
   Both
-} derive(Eq)
+}
 
 ///|
 pub extend Direction with Eq::{equal, not_equal}
 
 ///|
+#derive(Eq)
 pub(all) enum Status {
   Compatible
   Unknown
   Breaking
-} derive(Eq)
+}
 
 ///|
 pub extend Status with Eq::{equal, not_equal}
 
 ///|
+#derive(Eq)
 pub(all) enum ExternalKind {
   Function
   Table
   Memory
   Global
   Tag
-} derive(Eq)
+}
 
 ///|
 pub extend ExternalKind with Eq::{equal, not_equal}
 
 ///|
+#derive(Eq)
 pub(all) struct Limits {
   minimum : Int64
   maximum : Int64?
-} derive(Eq)
+}
 
 ///|
 pub extend Limits with Eq::{equal, not_equal}
 
 ///|
+#derive(Eq)
 pub(all) enum ExternalType {
   Function(Array[String], Array[String])
   Table(String, Limits, Bool)
@@ -47,57 +52,62 @@ pub(all) enum ExternalType {
   Global(String, Bool)
   Tag(Array[String])
   Unsupported(String)
-} derive(Eq)
+}
 
 ///|
 pub extend ExternalType with Eq::{equal, not_equal}
 
 ///|
+#derive(Eq)
 pub(all) struct Entry {
   import_module : String?
   name : String
   kind : ExternalKind
   type_ : ExternalType
-} derive(Eq)
+}
 
 ///|
 pub extend Entry with Eq::{equal, not_equal}
 
 ///|
+#derive(Eq)
 pub(all) struct Snapshot {
   format_version : Int32
   imports : Array[Entry]
   exports : Array[Entry]
   diagnostics : Array[String]
-} derive(Eq)
+}
 
 ///|
 pub extend Snapshot with Eq::{equal, not_equal}
 
 ///|
+#derive(Eq)
 pub(all) struct Change {
   key : String
   status : Status
   detail : String
-} derive(Eq)
+}
 
 ///|
 pub extend Change with Eq::{equal, not_equal}
 
 ///|
+#derive(Eq)
 pub(all) struct DirectionReport {
   direction : Direction
   status : Status
   changes : Array[Change]
-} derive(Eq)
+}
 
 ///|
 pub extend DirectionReport with Eq::{equal, not_equal}
 
 ///|
+#derive(Eq)
 pub(all) struct Report {
   reports : Array[DirectionReport]
-} derive(Eq)
+}
 
 ///|
 pub extend Report with Eq::{equal, not_equal}
