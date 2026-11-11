@@ -23,7 +23,7 @@ WIT 的兼容判定不等于 Core ABI 的集合比较。Bytecode Alliance `wasm-
 - 使用上游 `wasm-tools` 的公开算法和 WIT 规范作为语义参考及独立测试向量来源；不在运行时依赖其 Rust 工具或复制其实现代码。
 - 当前不 vendor。若明确的上游缺陷或缺失能力阻塞已确定的验收路径，且已向上游报告、经过两个发布周期或 90 天仍无可用修复，可临时 vendor Apache-2.0 许可的最小源码子集。保留版权、许可证、来源版本、差异和回迁说明，并将 vendored 部分限制在必要修复范围；上游发布可用修复后，迁回依赖并删除本地副本。
 - WIT source snapshot 与 check 是本阶段交付；Component 二进制 metadata 中 WIT 的选择/抽取作为单独后续议题，待出现稳定场景和可验证规则后再决定。
-- Component 二进制快照必须等到提取完整性可以验证后再实现；不能直接把当前 best-effort decoder 的输出接入兼容比较器。后续议题：[Component 内嵌 WIT 契约提取完整性 #7](https://github.com/Nanaloveyuki/wasm-tools/issues/7)。
+- Component 二进制快照必须等到提取完整性可以验证后再实现；不能直接把当前 best-effort decoder 的输出接入兼容比较器。后续议题：[Component 内嵌 WIT 契约提取完整性 #7](https://github.com/Nanaloveyuki/wasm-tools/issues/7) 正在跟踪上游 strict decoder 请求：[Milky2018/wasmoon#605](https://github.com/Milky2018/wasmoon/issues/605)。
 
 ## Consequences
 
