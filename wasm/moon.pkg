@@ -24,6 +24,11 @@ import {
   "Nanaloveyuki/wasm-tools/cli",
 } for "test"
 
+import {
+  "Nanaloveyuki/wasm-tools/cli",
+  "moonbitlang/core/quickcheck",
+} for "wbtest"
+
 supported_targets = "wasm"
 
 options(

@@ -163,7 +163,7 @@ fn wit_entries(
       @wit_verifier.Type(id) =>
         (
           "type",
-          wit_type_key(id, types, scope_names, 0) catch {
+          wit_type_key(id, types, scope_names, 0, Map([])) catch {
             @cli.CliError::Unsupported(reason) => "unknown:" + reason
             error => raise error
           },
@@ -186,10 +186,14 @@ fn interface_signature(
   scope_names : Map[Int32, String],
 ) -> String raise @cli.CliError {
   ensure_wit_stability(interface_.stability)
+  let alias_targets : Map[Int32, Int32] = Map([])
   let members : Array[(String, String)] = []
   for item in interface_.types {
     members.push(
-      ("type:" + item.name, wit_type_key(item.ty, types, scope_names, 0)),
+      (
+        "type:" + item.name,
+        wit_type_key(item.ty, types, scope_names, 0, alias_targets),
+      ),
     )
   }
   for function_ref in interface_.functions {
@@ -211,16 +215,21 @@ fn wit_function_signature(
   scope_names : Map[Int32, String],
 ) -> String raise @cli.CliError {
   ensure_wit_stability(function.stability)
+  let alias_targets : Map[Int32, Int32] = Map([])
   let out = StringBuilder()
   out.write_string("fn[")
   for param in function.params {
-    out.write_string(wit_type_key(param.ty, types, scope_names, 0))
+    out.write_string(
+      wit_type_key(param.ty, types, scope_names, 0, alias_targets),
+    )
     out.write_char(';')
   }
   out.write_string("]->")
   match function.result {
     Some(result) =>
-      out.write_string(wit_type_key(result, types, scope_names, 0))
+      out.write_string(
+        wit_type_key(result, types, scope_names, 0, alias_targets),
+      )
     None => out.write_string("unit")
   }
   out.write_string(if function.asynchronous { ";async" } else { ";sync" })
@@ -251,12 +260,14 @@ fn wit_type_key(
   types : Map[Int32, @wit_verifier.ResolvedType],
   scope_names : Map[Int32, String],
   depth : Int32,
+  alias_targets : Map[Int32, Int32],
 ) -> String raise @cli.CliError {
   if depth > 256 {
     raise @cli.CliError::Unsupported(
       "WIT type graph exceeds the supported nesting depth",
     )
   }
+  let id = resolve_wit_alias(id, types, alias_targets)
   guard types.get(id) is Some(type_) else {
     raise @cli.CliError::Unsupported(
       "WIT type reference is missing from the verified type graph",
@@ -271,36 +282,44 @@ fn wit_type_key(
     @wit_verifier.Borrow(resource) =>
       "borrow:" + wit_resource_key(resource, types, scope_names)
     @wit_verifier.Alias(target) =>
-      wit_type_key(target, types, scope_names, depth + 1)
+      wit_type_key(target, types, scope_names, depth, alias_targets)
     @wit_verifier.List(element, length) =>
       "list:" +
       length.map(v => v.to_string()).unwrap_or("*") +
       "<" +
-      wit_type_key(element, types, scope_names, depth + 1) +
+      wit_type_key(element, types, scope_names, depth + 1, alias_targets) +
       ">"
     @wit_verifier.Tuple(elements) =>
       "tuple[" +
       elements
-      .map(element => wit_type_key(element, types, scope_names, depth + 1))
+      .map(element => {
+        wit_type_key(element, types, scope_names, depth + 1, alias_targets)
+      })
       .join(";") +
       "]"
     @wit_verifier.Option(payload) =>
-      "option<" + wit_type_key(payload, types, scope_names, depth + 1) + ">"
+      "option<" +
+      wit_type_key(payload, types, scope_names, depth + 1, alias_targets) +
+      ">"
     @wit_verifier.Result(ok, error) =>
       "result<" +
-      optional_wit_type(ok, types, scope_names, depth) +
+      optional_wit_type(ok, types, scope_names, depth, alias_targets) +
       "," +
-      optional_wit_type(error, types, scope_names, depth) +
+      optional_wit_type(error, types, scope_names, depth, alias_targets) +
       ">"
     @wit_verifier.Future(payload) =>
-      "future<" + optional_wit_type(payload, types, scope_names, depth) + ">"
+      "future<" +
+      optional_wit_type(payload, types, scope_names, depth, alias_targets) +
+      ">"
     @wit_verifier.Stream(payload) =>
-      "stream<" + optional_wit_type(payload, types, scope_names, depth) + ">"
+      "stream<" +
+      optional_wit_type(payload, types, scope_names, depth, alias_targets) +
+      ">"
     @wit_verifier.Map(key, value) =>
       "map<" +
-      wit_type_key(key, types, scope_names, depth + 1) +
+      wit_type_key(key, types, scope_names, depth + 1, alias_targets) +
       "," +
-      wit_type_key(value, types, scope_names, depth + 1) +
+      wit_type_key(value, types, scope_names, depth + 1, alias_targets) +
       ">"
     @wit_verifier.Record(fields) =>
       "record{" +
@@ -308,7 +327,7 @@ fn wit_type_key(
       .map(field => {
         wit_pair(
           field.name,
-          wit_type_key(field.ty, types, scope_names, depth + 1),
+          wit_type_key(field.ty, types, scope_names, depth + 1, alias_targets),
         )
       })
       .join("") +
@@ -322,13 +341,58 @@ fn wit_type_key(
         wit_pair(
           case_.name,
           case_.payload
-          .map(payload => wit_type_key(payload, types, scope_names, depth + 1))
+          .map(payload => {
+            wit_type_key(payload, types, scope_names, depth + 1, alias_targets)
+          })
           .unwrap_or("unit"),
         )
       })
       .join("") +
       "]"
   }
+}
+
+///|
+fn resolve_wit_alias(
+  id : Int32,
+  types : Map[Int32, @wit_verifier.ResolvedType],
+  alias_targets : Map[Int32, Int32],
+) -> Int32 raise @cli.CliError {
+  let path : Array[Int32] = []
+  let mut current = id
+  let mut steps = 0
+  while true {
+    match alias_targets.get(current) {
+      Some(target) => {
+        current = target
+        break
+      }
+      None => ()
+    }
+    guard types.get(current) is Some(type_) else {
+      raise @cli.CliError::Unsupported(
+        "WIT type reference is missing from the verified type graph",
+      )
+    }
+    ensure_wit_stability(type_.stability)
+    match type_.kind {
+      @wit_verifier.Alias(target) => {
+        path.push(current)
+        current = target
+        steps += 1
+        if steps > 65536 {
+          raise @cli.CliError::Unsupported(
+            "WIT alias chain exceeds the supported work limit",
+          )
+        }
+      }
+      _ => break
+    }
+  }
+  for alias_id in path {
+    alias_targets[alias_id] = current
+  }
+  current
 }
 
 ///|
@@ -351,9 +415,11 @@ fn optional_wit_type(
   types : Map[Int32, @wit_verifier.ResolvedType],
   scope_names : Map[Int32, String],
   depth : Int32,
+  alias_targets : Map[Int32, Int32],
 ) -> String raise @cli.CliError {
   match id {
-    Some(value) => wit_type_key(value, types, scope_names, depth + 1)
+    Some(value) =>
+      wit_type_key(value, types, scope_names, depth + 1, alias_targets)
     None => "unit"
   }
 }

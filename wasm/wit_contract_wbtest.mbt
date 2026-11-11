@@ -4,6 +4,28 @@ fn build_test_wit_snapshot(source : String) -> @contract.WitSnapshot {
 }
 
 ///|
+fn alias_chain_source(
+  terminal : String,
+  length : Int32,
+  shortcuts : Array[Bool],
+) -> String {
+  let source = StringBuilder()
+  source.write_string("package demo:aliases; interface api {")
+  for i in 0..<length {
+    let target = if shortcuts.get(i).unwrap_or(false) {
+      terminal
+    } else {
+      "t\{i + 1}"
+    }
+    source.write_string("type t\{i} = " + target + ";")
+  }
+  source.write_string("type t\{length} = " + terminal + ";")
+  source.write_string("read: func(value: t0);}")
+  source.write_string("world cli { import api; }")
+  source.to_string()
+}
+
+///|
 test "WIT adapter ignores package versions and source formatting" {
   let baseline = wit_world_snapshot(
     @utf8.encode(
@@ -69,6 +91,58 @@ test "WIT adapter captures interface field changes" {
   )
   let report = @contract.compare_wit_snapshots(baseline, candidate)
   inspect(report.status == @contract.Breaking, content="true")
+}
+
+///|
+test "WIT adapter compares long verified alias chains structurally" {
+  let baseline = build_test_wit_snapshot(alias_chain_source("u32", 1024, []))
+  let shortcuts = Array::make(1024, true)
+  let same = build_test_wit_snapshot(alias_chain_source("u32", 1024, shortcuts))
+  let changed = build_test_wit_snapshot(
+    alias_chain_source("u64", 1024, shortcuts),
+  )
+  inspect(baseline.imports[0].signature.has_prefix("unknown:"), content="false")
+  inspect(
+    baseline.imports[0].signature == same.imports[0].signature,
+    content="true",
+  )
+  inspect(
+    baseline.imports[0].signature != changed.imports[0].signature,
+    content="true",
+  )
+  inspect(
+    @contract.compare_wit_snapshots(baseline, same).status ==
+    @contract.Compatible,
+    content="true",
+  )
+  inspect(
+    @contract.compare_wit_snapshots(baseline, changed).status ==
+    @contract.Breaking,
+    content="true",
+  )
+}
+
+///|
+test "law: WIT alias shortcutting preserves the resolved type" {
+  @quickcheck.check(
+    (shortcuts : Array[Bool]) => {
+      let length = 257 + shortcuts.length()
+      let baseline = build_test_wit_snapshot(
+        alias_chain_source("u32", length, []),
+      )
+      let candidate = build_test_wit_snapshot(
+        alias_chain_source("u32", length, shortcuts),
+      )
+      !baseline.imports[0].signature.has_prefix("unknown:") &&
+      !candidate.imports[0].signature.has_prefix("unknown:") &&
+      baseline.imports[0].signature == candidate.imports[0].signature &&
+      @contract.compare_wit_snapshots(baseline, candidate).status ==
+      @contract.Compatible
+    },
+    count=100,
+    max_size=32,
+    seed=20261113,
+  )
 }
 
 ///|

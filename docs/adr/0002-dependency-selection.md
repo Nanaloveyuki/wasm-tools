@@ -95,9 +95,9 @@ moon test
 ## Dependency Upgrade Verification (2026-11-11)
 
 直接依赖升级到上表所列版本。新版本要求 MoonBit 0.10.20；使用 `moon`
-0.1.20261104（moonc 0.10.20）完成验证。`moonrockz/wit@0.4.0` 当前仍传递依赖
-`wasm_core` / `wasm_component@0.16.0`，因此依赖树中会与本项目直接采用的 0.19.0
-并存；本次 `moon check`、测试、release 构建及 CLI smoke 均通过。
+0.1.20261104（moonc 0.10.20）完成验证。当前 `moon tree` 显示
+`moonrockz/wit@0.4.0` 与本项目共用 `wasm_core` / `wasm_component@0.19.0`；本次
+`moon check`、测试、release 构建及 CLI smoke 均通过。
 
 升级验证命令：
 

@@ -115,3 +115,63 @@ test "snapshot parser rejects unsupported schema versions" {
   ignore(parsed)
   fail("unsupported snapshot version was accepted")
 }
+
+///|
+fn reverse_entries(entries : Array[Entry]) -> Array[Entry] {
+  let reversed : Array[Entry] = []
+  for i in 0..<entries.length() {
+    reversed.push(entries[entries.length() - i - 1])
+  }
+  reversed
+}
+
+///|
+test "law: Core ABI snapshot and comparison ignore declaration order" {
+  @quickcheck.check(
+    (values : Array[Bool]) => {
+      let entries : Array[Entry] = []
+      for i, value in values {
+        let value_type = if value { "i32" } else { "i64" }
+        entries.push(function_entry("export-" + i.to_string(), [value_type]))
+      }
+      let baseline_entries = entries.copy()
+      baseline_entries.push(function_entry("changed", ["i32"]))
+      let baseline : Snapshot = {
+        format_version: SNAPSHOT_FORMAT_VERSION,
+        imports: [],
+        exports: baseline_entries,
+        diagnostics: [],
+      }
+      let changed_entries = entries.copy()
+      changed_entries.push(function_entry("changed", ["i64"]))
+      let reordered : Snapshot = {
+        format_version: SNAPSHOT_FORMAT_VERSION,
+        imports: [],
+        exports: reverse_entries(changed_entries),
+        diagnostics: [],
+      }
+      let changed : Snapshot = {
+        format_version: SNAPSHOT_FORMAT_VERSION,
+        imports: [],
+        exports: changed_entries,
+        diagnostics: [],
+      }
+      let original_report = compare_snapshots(
+        baseline,
+        changed,
+        Direction::Provided,
+      )
+      let reordered_report = compare_snapshots(
+        baseline,
+        reordered,
+        Direction::Provided,
+      )
+      snapshot_json(changed) == snapshot_json(reordered) &&
+      original_report.reports[0].status == Status::Breaking &&
+      original_report == reordered_report
+    },
+    count=200,
+    max_size=32,
+    seed=20261111,
+  )
+}

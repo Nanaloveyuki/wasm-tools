@@ -8,7 +8,7 @@
 
 Core ABI MVP 已验证。WIT 为 Component Model 用户提供比二进制外部名和 core 函数签名更高层的 package、world、interface 与资源类型边界，适合扩展当前的兼容分析主线。
 
-现有 MoonBit 依赖 `moonrockz/wit` 提供 WIT parser 和纯语义 verifier。仓库所用 0.3.0 版本已公开解析、world 选择和解析后类型图 API；上游 v0.4.0 于 2026-11-08 发布，变更是 MoonBit 0.10.20 工具链升级，没有 API 变化。当前本地工具链为 0.10.19，因此首版继续使用可构建的 0.3.0。
+MoonBit 依赖 `moonrockz/wit@0.4.0` 提供 WIT parser 和纯语义 verifier。该版本要求 MoonBit 0.10.20；项目已升级工具链并验证当前依赖组合。上游 `wasm-tools` 的 `semver_check` 实现是规则的独立参考：它清除 package version 后，通过 Component Model 类型验证检查候选 world 是否可实例化旧 world。
 
 WIT 的兼容判定不等于 Core ABI 的集合比较。Bytecode Alliance `wasm-tools` 的 `wit-component::semver_check` 以 Component Model 类型验证执行 WIT world 子类型检查：版本号不参与结构比较，候选 world 可增加 imports、减少 exports；同名项必须通过组件类型兼容关系。WIT 规范也定义 `@since`、`@unstable` 和 `@deprecated` 的语义，但首版不把 feature-gate 发布策略扩展成另一个 SemVer policy engine。
 
@@ -20,7 +20,7 @@ WIT 的兼容判定不等于 Core ABI 的集合比较。Bytecode Alliance `wasm-
 - 提供可版本化的 WIT world snapshot 和 SemVer check API/CLI。契约身份包含 namespace、package 与 world 名称；package version 用于报告，但不作为结构兼容身份。
 - `contract` 包拥有独立的 WIT snapshot 与报告类型，不暴露 `moonrockz/wit` 的解析器/AST 类型。`wasm` 边界调用 parser/verifier 并将已解析 world 规范化为本项目类型。
 - 判定采用 Component Model 的 world 子类型方向：候选版本可增加 imports、删除 exports；删除 imports、增加 exports 为 breaking。首版不推导同名项内部的方差子类型，任何无法规范化的类型返回 `unknown`，可规范化但结构不同的同名项按 breaking 处理。
-- 使用上游 `wasm-tools` 的公开算法和 WIT 规范作为语义参考及独立测试向量来源；不在运行时依赖其 Rust 工具或复制其实现代码。
+- 使用上游 `wasm-tools` 的公开算法和 WIT 规范作为语义参考及独立测试向量来源；不在运行时依赖其 Rust 工具或复制其实现代码。当前对照源码固定为 [`semver_check.rs` at `b38a9a6`](https://github.com/bytecodealliance/wasm-tools/blob/b38a9a674fb133984ce58e7ae853b07f3418e10e/crates/wit-component/src/semver_check.rs)。
 - 当前不 vendor。若明确的上游缺陷或缺失能力阻塞已确定的验收路径，且已向上游报告、经过两个发布周期或 90 天仍无可用修复，可临时 vendor Apache-2.0 许可的最小源码子集。保留版权、许可证、来源版本、差异和回迁说明，并将 vendored 部分限制在必要修复范围；上游发布可用修复后，迁回依赖并删除本地副本。
 - WIT source snapshot 与 check 是本阶段交付；Component 二进制 metadata 中 WIT 的选择/抽取作为单独后续议题，待出现稳定场景和可验证规则后再决定。
 - Component 二进制快照必须等到提取完整性可以验证后再实现；不能直接把当前 best-effort decoder 的输出接入兼容比较器。后续议题：[Component 内嵌 WIT 契约提取完整性 #7](https://github.com/Nanaloveyuki/wasm-tools/issues/7) 正在跟踪上游 strict decoder 请求：[Milky2018/wasmoon#605](https://github.com/Milky2018/wasmoon/issues/605)。
@@ -39,6 +39,7 @@ WIT 的兼容判定不等于 Core ABI 的集合比较。Bytecode Alliance `wasm-
 - 同一 WIT 仅改变 package version、源码空白或声明顺序时，兼容结论保持稳定。
 - parser/verifier 拒绝或本项目无法规范化的语法不能被静默当作兼容。
 - 可从 WIT 文件生成稳定 JSON 基线快照，并在 CLI 与 MoonBit API 两条路径运行检查。
+- 上游语义对照固定到 `wasm-tools` revision `b38a9a674fb133984ce58e7ae853b07f3418e10e`；本项目测试覆盖版本忽略、imports/exports 方向及同名结构变化，不将上游 Rust 实现作为运行时依赖。
 
 ## References
 

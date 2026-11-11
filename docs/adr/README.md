@@ -15,6 +15,7 @@
 | [0008](0008-contract-cli-and-snapshot-format.md) | 快照格式、CLI 行为与退出码 |
 | [0009](0009-contract-verification.md) | 兼容性实现的验证与交付标准 |
 | [0010](0010-wit-semver-compatibility.md) | WIT world SemVer 兼容规则、上游依赖与 vendoring 决策 |
+| [0011](0011-wit-alias-normalization.md) | WIT 深层透明别名规范化与比较边界 |
 
 ## 写法
 
