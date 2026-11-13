@@ -4,7 +4,7 @@ package "Nanaloveyuki/wasm-tools/cli"
 // Values
 pub const TOOL_NAME : String = "wsm"
 
-pub const VERSION : String = "0.5.0"
+pub const VERSION : String = "0.5.1"
 
 pub fn help_text() -> String
 

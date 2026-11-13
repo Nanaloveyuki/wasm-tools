@@ -152,7 +152,7 @@ WIT/WAC 语言工具、`smith`/`mutate`/`shrink`、
 
 | 项目 | 值 |
 |---|---|
-| Mooncakes | `Nanaloveyuki/wasm-tools@0.5.0` |
+| Mooncakes | `Nanaloveyuki/wasm-tools@0.5.1` |
 | CI | GitHub Actions，Ubuntu / macOS / Windows 三平台 |
 | 测试 | 单元测试 + Linux CLI / MoonBit 产物演示 + Windows CLI（moonrun interop） |
 | 许可证 | Apache-2.0 |
@@ -164,12 +164,21 @@ WIT/WAC 语言工具、`smith`/`mutate`/`shrink`、
 | 0.1.0 | validate / print / parse / dump / strip / metadata / component wit |
 | 0.2.0 | component 感知的 dump/metadata；`size` v1（section、函数、调用图） |
 | 0.3.0 | `opt`（包装 `moon-wasm-opt`）；`size --diff`/`--budget` |
-| 0.4.2（当前） | `symbolize`（name section 符号化）；`compose` 因上游依赖阻塞 |
+| 0.4.2 | `symbolize`（name section 符号化）；`compose` 因上游依赖阻塞 |
 | 0.5.0 | Core ABI 与显式 WIT world 快照、方向性兼容检查及 WIT SemVer 检查 |
+| 0.5.1（当前） | 固定 MoonBit 0.10.20 工具链；CLI 与跨平台 smoke 测试版本保持一致 |
 
 详细决策与验证标准见 [ADR 索引](docs/adr/README.md)。
 
 ## 开发
+
+`.moonbit-toolchain` 固定编译器归档 `0.10.20+65efd5b93`（2026-11-05），对应 CLI 为 `0.1.20261104`。本地与三平台 CI 使用同一归档。所有直接与传递依赖已按 2026-11-13 的 registry 索引核对为最新非 yanked 发布版本。
+
+```bash
+curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash -s -- "$(cat .moonbit-toolchain)"
+moon version --all
+moon update
+```
 
 ```sh
 moon build --target wasm       # 生成 _build/wasm/debug/build/wasm-tools.wasm
