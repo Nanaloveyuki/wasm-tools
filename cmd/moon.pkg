@@ -3,6 +3,7 @@ import {
   "Nanaloveyuki/wasm-tools/wasm",
   "Nanaloveyuki/wasm-tools/contract",
   "Nanaloveyuki/wasm-tools/release",
+  "Nanaloveyuki/wasm-tools/bundle",
   "moonbitlang/core/encoding/utf8",
   "moonbitlang/core/string" @str,
   "moonbitlang/core/json",

@@ -1,0 +1,102 @@
+///|
+fn bundle_report_json(
+  manifest : String,
+  root : String,
+  files : Array[@bundle.FileObservation],
+  findings : Array[@bundle.Finding],
+  compressions : Array[Json],
+  consumers : Array[Json],
+) -> Json {
+  Json::object({
+    "format_version": Json::number(1.0),
+    "mode": Json::string("bundle-check"),
+    "manifest": Json::string(manifest),
+    "root": Json::string(root),
+    "status": Json::string(
+      if findings.is_empty() {
+        "passed"
+      } else {
+        "failed"
+      },
+    ),
+    "files": Json::array(
+      files.map(file => {
+        Json::object({
+          "path": Json::string(file.path),
+          "bytes": match file.bytes {
+            Some(n) => Json::number(n.to_double())
+            None => Json::null()
+          },
+          "sha256": release_optional_string(file.sha256),
+          "error": release_optional_string(file.error),
+        })
+      }),
+    ),
+    "findings": Json::array(
+      findings.map(finding => {
+        Json::object({
+          "code": Json::string(finding.code),
+          "path": Json::string(finding.path),
+          "related_path": release_optional_string(finding.related_path),
+          "message": Json::string(finding.message),
+        })
+      }),
+    ),
+    "compressions": Json::array(compressions),
+    "consumers": Json::array(consumers),
+  })
+}
+
+///|
+fn bundle_markdown(report : Json) -> String {
+  let out = StringBuilder()
+  out.write_string("# WASM Bundle Report\n\n")
+  out.write_string(
+    "Status: " +
+    markdown_cell(json_object_string(Some(report), "status").unwrap_or("error")) +
+    "\n\n",
+  )
+  out.write_string(
+    "| File | Bytes | SHA-256 | Error |\n| --- | ---: | --- | --- |\n",
+  )
+  if report is Json::Object(object) {
+    if object.get("files") is Some(Json::Array(files)) {
+      for file in files {
+        let bytes = if file is Json::Object(row) {
+          row.get("bytes").unwrap_or(Json::null()).stringify()
+        } else {
+          "null"
+        }
+        out.write_string(
+          "| " +
+          markdown_cell(json_object_string(Some(file), "path").unwrap_or("")) +
+          " | " +
+          bytes +
+          " | " +
+          markdown_cell(json_object_string(Some(file), "sha256").unwrap_or("")) +
+          " | " +
+          markdown_cell(json_object_string(Some(file), "error").unwrap_or("")) +
+          " |\n",
+        )
+      }
+    }
+    if object.get("findings") is Some(Json::Array(findings)) &&
+      !findings.is_empty() {
+      out.write_string("\n| Code | Path | Finding |\n| --- | --- | --- |\n")
+      for finding in findings {
+        out.write_string(
+          "| " +
+          markdown_cell(json_object_string(Some(finding), "code").unwrap_or("")) +
+          " | " +
+          markdown_cell(json_object_string(Some(finding), "path").unwrap_or("")) +
+          " | " +
+          markdown_cell(
+            json_object_string(Some(finding), "message").unwrap_or(""),
+          ) +
+          " |\n",
+        )
+      }
+    }
+  }
+  out.to_string()
+}

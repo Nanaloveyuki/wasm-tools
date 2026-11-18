@@ -1,0 +1,75 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "Nanaloveyuki/wasm-tools/bundle"
+
+import {
+  "moonbitlang/core/json",
+}
+
+// Values
+pub fn parse_manifest(String) -> Manifest raise ManifestError
+
+// Errors
+pub suberror ManifestError {
+  ManifestError(String)
+}
+pub fn ManifestError::message(Self) -> String
+
+// Types and methods
+pub(all) struct Consumer {
+  name : String
+  entry : String
+  requires : Array[String]
+  export_name : String
+  args : Array[@json.Json]
+  expected : @json.Json
+  timeout_ms : Int32
+}
+
+#derive(Eq)
+pub enum Encoding {
+  Identity
+  Gzip
+  Brotli
+}
+pub fn Encoding::equal(Self, Self) -> Bool
+pub fn Encoding::not_equal(Self, Self) -> Bool
+
+#derive(Eq)
+pub enum FileKind {
+  Asset
+  Wasm
+}
+pub fn FileKind::equal(Self, Self) -> Bool
+pub fn FileKind::not_equal(Self, Self) -> Bool
+
+pub(all) struct FileObservation {
+  path : String
+  bytes : Int32?
+  sha256 : String?
+  error : String?
+}
+
+pub(all) struct FileSpec {
+  path : String
+  kind : FileKind
+  encoding : Encoding
+  source : String?
+}
+
+pub(all) struct Finding {
+  code : String
+  path : String
+  related_path : String?
+  message : String
+}
+
+pub(all) struct Manifest {
+  format_version : Int32
+  root : String
+  files : Array[FileSpec]
+  consumers : Array[Consumer]
+}
+
+// Type aliases
+
+// Traits

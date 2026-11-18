@@ -6,6 +6,7 @@ pub fn help_text() -> String {
     #|Usage: wsm <COMMAND> [OPTIONS] [FILE]
     #|
     #|Commands:
+    #|  bundle check MANIFEST  Check files and consumers in a WASM release bundle
     #|  release check CONFIG   Check release budgets and artifact policies
     #|  release prepare CONFIG Process, recheck, and publish to a new directory
     #|  validate [FILE]        Parse and validate a module or component
