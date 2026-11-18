@@ -1,6 +1,6 @@
 name = "Nanaloveyuki/wasm-tools"
 
-version = "0.5.1"
+version = "0.6.0"
 
 readme = "README.md"
 
@@ -8,9 +8,16 @@ repository = "https://github.com/Nanaloveyuki/wasm-tools"
 
 license = "Apache-2.0"
 
-keywords = [ "wasm", "webassembly", "abi", "compatibility", "moonbit" ]
+keywords = [
+  "wasm",
+  "webassembly",
+  "ci",
+  "release",
+  "github-actions",
+  "moonbit",
+]
 
-description = "MoonBit WASM contract snapshots and directional compatibility checks"
+description = "Configurable WASM release policies, artifact preparation, and a reusable GitHub Action"
 
 preferred_target = "wasm"
 

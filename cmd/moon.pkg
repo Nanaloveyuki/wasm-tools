@@ -2,8 +2,15 @@ import {
   "Nanaloveyuki/wasm-tools/cli",
   "Nanaloveyuki/wasm-tools/wasm",
   "Nanaloveyuki/wasm-tools/contract",
+  "Nanaloveyuki/wasm-tools/release",
   "moonbitlang/core/encoding/utf8",
   "moonbitlang/core/string" @str,
+  "moonbitlang/core/json",
+  "moonbitlang/async",
+  "moonbitlang/async/fs",
+  "moonbitlang/async/process",
+  "moonbitlang/x/path",
+  "moonbitlang/x/crypto",
 }
 
 supported_targets = "wasm"

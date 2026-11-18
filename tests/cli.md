@@ -7,10 +7,10 @@ Run from `tests/` after `moon build --target wasm`. Each `$` line is one command
 
 ```console
 $ ../run.sh --version
-wsm 0.1.0
+wsm 0.6.0
 
 $ ../run.sh --help
-wsm - WebAssembly binary toolkit
+wsm - WebAssembly release checks and binary tools
 ...
 ```
 

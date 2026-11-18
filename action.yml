@@ -1,0 +1,63 @@
+name: MoonBit WASM release gate
+description: Build wasm-tools and check or prepare Core Wasm release artifacts on Linux.
+
+inputs:
+  config:
+    description: Path to the release JSON config, relative to the workspace or absolute.
+    required: true
+  mode:
+    description: Release operation to run (check or prepare).
+    required: false
+    default: check
+  out-dir:
+    description: Prepared artifact directory. Defaults to a fresh directory in the runner temp area for prepare mode.
+    required: false
+    default: ''
+  moonhostabi:
+    description: MoonHostABI executable or path. Defaults to moonhostabi on PATH.
+    required: false
+    default: moonhostabi
+  install-moonhostabi:
+    description: Install pinned 0717lee/moonhostabi/cmd/moonhostabi@0.6.0.
+    required: false
+    default: 'false'
+  wasm-opt:
+    description: Optional moon-wasm-opt executable or path for prepare mode.
+    required: false
+    default: ''
+
+outputs:
+  report-json:
+    description: Path to this invocation's JSON report; empty when no valid JSON report was produced.
+    value: ${{ steps.release.outputs.report-json }}
+  summary:
+    description: Path to this invocation's Markdown summary.
+    value: ${{ steps.release.outputs.summary }}
+  prepared-dir:
+    description: Prepared artifact directory, set only after a successful prepare.
+    value: ${{ steps.release.outputs.prepared-dir }}
+  status:
+    description: Report status, or error when no report could be produced.
+    value: ${{ steps.release.outputs.status }}
+
+runs:
+  using: composite
+  steps:
+    - name: Build release CLI
+      shell: bash
+      run: bash "$GITHUB_ACTION_PATH/scripts/setup-action.sh"
+      env:
+        RUNNER_OS: ${{ runner.os }}
+        INPUT_MODE: ${{ inputs.mode }}
+        INPUT_MOONHOSTABI: ${{ inputs.moonhostabi }}
+        INPUT_INSTALL_MOONHOSTABI: ${{ inputs.install-moonhostabi }}
+    - name: Run release gate
+      id: release
+      shell: bash
+      run: node "$GITHUB_ACTION_PATH/scripts/run-action.mjs"
+      env:
+        INPUT_CONFIG: ${{ inputs.config }}
+        INPUT_MODE: ${{ inputs.mode }}
+        INPUT_OUT_DIR: ${{ inputs.out-dir }}
+        INPUT_MOONHOSTABI: ${{ inputs.moonhostabi }}
+        INPUT_WASM_OPT: ${{ inputs.wasm-opt }}

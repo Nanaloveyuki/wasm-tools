@@ -1,6 +1,6 @@
 # 0005 将产品主线转向 WASM 契约兼容性检查
 
-- Status: Accepted
+- Status: Superseded by 0012 for product direction; published commands remain supported.
 - Date: 2026-11-10
 - Supersedes: 0001（仅产品定位与未来范围；原有命令约定仍有效）及 0004 中未交付的未来路线。
 

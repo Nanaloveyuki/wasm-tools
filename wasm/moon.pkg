@@ -18,6 +18,8 @@ import {
   "moonbitlang/async/process",
   "moonbitlang/core/env",
   "Nanaloveyuki/wasm-tools/contract",
+  "Nanaloveyuki/wasm-tools/release",
+  "moonbitlang/x/crypto",
 }
 
 import {

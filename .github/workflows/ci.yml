@@ -64,3 +64,109 @@ jobs:
           moonrun _build/wasm/debug/build/wasm-tools.wasm -- --version
           moonrun _build/wasm/debug/build/wasm-tools.wasm -- parse tests/fixtures/hello.wat -o "$env:TEMP/hello.wasm"
           moonrun _build/wasm/debug/build/wasm-tools.wasm -- validate "$env:TEMP/hello.wasm"
+
+      - name: Release policies and processing
+        shell: bash
+        run: |
+          moon build --target wasm
+          python3 tests/release-check.py
+
+      - name: Action runner integration (Linux)
+        if: runner.os == 'Linux'
+        run: node tests/action-runner.mjs
+
+  release-action:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Prepare release-policy fixtures
+        env:
+          FIXTURE_DIR: ${{ runner.temp }}/wsm-action-fixtures
+        run: |
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          work = Path(os.environ['FIXTURE_DIR'])
+          work.mkdir()
+          source = work / 'app.wasm'
+          source.write_bytes(b'\0asm\1\0\0\0' + b'\0\6\4metaX')
+          artifact = {'id': 'app', 'input': 'app.wasm',
+                      'rules': {'max_bytes': 8, 'forbidden_custom_sections': ['meta']},
+                      'process': {'strip_custom_sections': ['meta']}}
+          (work / 'prepare.json').write_text(json.dumps({'format_version': 1, 'artifacts': [artifact]}))
+          artifact['rules']['max_bytes'] = 0
+          (work / 'fail.json').write_text(json.dumps({'format_version': 1, 'artifacts': [artifact]}))
+          PY
+
+      - name: Prepare with the reusable Action
+        id: prepare
+        uses: ./
+        with:
+          config: ${{ runner.temp }}/wsm-action-fixtures/prepare.json
+          mode: prepare
+          install-moonhostabi: 'true'
+
+      - name: Create an upstream ABI baseline
+        env:
+          PREPARED_DIR: ${{ steps.prepare.outputs.prepared-dir }}
+          FIXTURE_DIR: ${{ runner.temp }}/wsm-action-fixtures
+        run: |
+          moonhostabi lock "$PREPARED_DIR/app.wasm" --out "$FIXTURE_DIR/app.lock.json"
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          work = Path(os.environ['FIXTURE_DIR'])
+          config = {'format_version': 1, 'artifacts': [{
+              'id': 'app', 'input': str(Path(os.environ['PREPARED_DIR']) / 'app.wasm'),
+              'rules': {'max_bytes': 8}, 'abi': {'baseline': 'app.lock.json'}}]}
+          (work / 'abi.json').write_text(json.dumps(config))
+          PY
+
+      - name: Verify through MoonHostABI
+        id: abi
+        uses: ./
+        with:
+          config: ${{ runner.temp }}/wsm-action-fixtures/abi.json
+
+      - name: Reject an over-budget release
+        id: reject
+        continue-on-error: true
+        uses: ./
+        with:
+          config: ${{ runner.temp }}/wsm-action-fixtures/fail.json
+          mode: prepare
+
+      - name: Verify Action outcomes
+        env:
+          REJECT_OUTCOME: ${{ steps.reject.outcome }}
+          REJECT_STATUS: ${{ steps.reject.outputs.status }}
+          REJECT_DIRECTORY: ${{ steps.reject.outputs.prepared-dir }}
+          ABI_REPORT: ${{ steps.abi.outputs.report-json }}
+        run: |
+          test "$REJECT_OUTCOME" = failure
+          test "$REJECT_STATUS" = failed
+          test -z "$REJECT_DIRECTORY"
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          report = json.loads(Path(os.environ['ABI_REPORT']).read_text())
+          abi = report['artifacts'][0]['abi']
+          assert abi['passed'] and abi['exit_code'] == 0
+          assert abi['report']['outcome'] == 'compatible'
+          assert abi['report']['artifact']['sha256'] == report['artifacts'][0]['after']['sha256']
+          PY
+
+      - name: Upload release reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-action-reports
+          path: |
+            ${{ steps.prepare.outputs.report-json }}
+            ${{ steps.prepare.outputs.summary }}
+            ${{ steps.abi.outputs.report-json }}
+            ${{ steps.reject.outputs.report-json }}
+          if-no-files-found: warn

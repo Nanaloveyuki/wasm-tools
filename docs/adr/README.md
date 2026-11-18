@@ -16,6 +16,7 @@
 | [0009](0009-contract-verification.md) | 兼容性实现的验证与交付标准 |
 | [0010](0010-wit-semver-compatibility.md) | WIT world SemVer 兼容规则、上游依赖与 vendoring 决策 |
 | [0011](0011-wit-alias-normalization.md) | WIT 深层透明别名规范化与比较边界 |
+| [0012](0012-release-pipeline.md) | 发布规则、产物处理、MoonHostABI 委托与可复用 Action |
 
 ## 写法
 

@@ -1,0 +1,18 @@
+{
+  "format_version": 1,
+  "artifacts": [
+    {
+      "id": "calculator",
+      "input": "../_build/wasm/release/build/examples/examples.wasm",
+      "rules": {
+        "max_bytes": 100000,
+        "section_budgets": { "code": 50000 },
+        "allowed_imports": [],
+        "forbidden_custom_sections": ["name"]
+      },
+      "process": {
+        "strip_custom_sections": ["name"]
+      }
+    }
+  ]
+}

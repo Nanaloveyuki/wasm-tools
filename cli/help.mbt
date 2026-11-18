@@ -1,11 +1,13 @@
 ///|
 pub fn help_text() -> String {
   let text =
-    #|wsm - WebAssembly contract and binary tools
+    #|wsm - WebAssembly release checks and binary tools
     #|
     #|Usage: wsm <COMMAND> [OPTIONS] [FILE]
     #|
     #|Commands:
+    #|  release check CONFIG   Check release budgets and artifact policies
+    #|  release prepare CONFIG Process, recheck, and publish to a new directory
     #|  validate [FILE]        Parse and validate a module or component
     #|  print [FILE]           Convert binary to WAT (-o FILE to write)
     #|  parse [FILE]           Convert WAT to binary (-o FILE to write)

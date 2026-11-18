@@ -4,6 +4,7 @@ package "Nanaloveyuki/wasm-tools/wasm"
 import {
   "Nanaloveyuki/wasm-tools/cli",
   "Nanaloveyuki/wasm-tools/contract",
+  "Nanaloveyuki/wasm-tools/release",
   "moonbitlang/core/ref",
 }
 
@@ -53,6 +54,8 @@ pub fn read_name_public(Bytes, @ref.Ref[Int32]) -> String raise @cli.CliError
 pub fn rebuild(Bytes, Array[Bytes]) -> Bytes
 
 pub fn reject_component(Bytes, String) -> Unit raise @cli.CliError
+
+pub fn release_facts(Bytes) -> @release.Facts raise @cli.CliError
 
 pub async fn run_optimizer(Optimizer, Bytes, String, Array[String]) -> Bytes raise @cli.CliError
 

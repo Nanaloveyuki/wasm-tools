@@ -63,6 +63,7 @@ async fn dispatch(
     "symbolize" => cmd_symbolize(args)
     "component" => cmd_component(args)
     "contract" => cmd_contract(args)
+    "release" => cmd_release(args)
     _ => raise @cli.CliError::Usage("unknown command: " + command)
   }
 }
