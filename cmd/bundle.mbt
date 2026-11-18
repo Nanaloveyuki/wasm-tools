@@ -77,7 +77,7 @@ pub async fn cmd_bundle(args : Array[String]) -> Int32 raise @cli.CliError {
     nodes.get(0).unwrap_or("node"),
   )
   let report = bundle_report_json(
-    manifest_path,
+    release_canonical_path(manifest_path),
     root,
     capture.observations,
     findings,

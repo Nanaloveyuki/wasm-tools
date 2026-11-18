@@ -142,8 +142,18 @@ def main() -> int:
         summary_path = work / "valid.summary.md"
         _, report = invoke(manifest, report_path=report_path, summary_path=summary_path)
         require(report is not None and report["status"] == "passed", "valid bundle should pass")
-        require(report["manifest"] == str(manifest.resolve()), "report manifest path should be canonical")
-        require(report["root"] == str(bundle.resolve()), "default root should be manifest directory")
+        expected_manifest = manifest.resolve()
+        reported_manifest = Path(report["manifest"])
+        require(
+            reported_manifest == expected_manifest,
+            f"report manifest path should be canonical: {reported_manifest!r} != {expected_manifest!r}",
+        )
+        expected_root = bundle.resolve()
+        reported_root = Path(report["root"])
+        require(
+            reported_root == expected_root,
+            f"default root should be manifest directory: {reported_root!r} != {expected_root!r}",
+        )
         rows = report["files"]
         require([row["path"] for row in rows] == ["index.mjs", "app.wasm"], "file order/path mismatch")
         require(rows[0]["bytes"] == len(asset_bytes), "asset byte count mismatch")
@@ -154,6 +164,29 @@ def main() -> int:
         require(report["compressions"] == [] and report["consumers"] == [], "optional report sections mismatch")
         require(summary_path.is_file(), "Markdown summary was not written")
         require(summary_path.read_text(encoding="utf-8").strip(), "Markdown summary is empty")
+
+        manifest_alias = work / "manifest-alias"
+        try:
+            manifest_alias.symlink_to(work, target_is_directory=True)
+        except (NotImplementedError, OSError):
+            pass
+        else:
+            alias_manifest = manifest_alias / manifest.name
+            _, alias_report = invoke(
+                alias_manifest,
+                report_path=work / "alias-manifest.report.json",
+            )
+            require(alias_report is not None and alias_report["status"] == "passed", "manifest directory alias should pass")
+            alias_reported_manifest = Path(alias_report["manifest"])
+            require(
+                alias_reported_manifest == expected_manifest,
+                f"report manifest should resolve its parent symlink: {alias_reported_manifest!r} != {expected_manifest!r}",
+            )
+            alias_reported_root = Path(alias_report["root"])
+            require(
+                alias_reported_root == expected_root,
+                f"manifest root should resolve through its parent symlink: {alias_reported_root!r} != {expected_root!r}",
+            )
 
         app_gzip = bundle / "app.wasm.gz"
         app_brotli = bundle / "app.wasm.br"
@@ -632,7 +665,12 @@ def main() -> int:
         (work / "index.mjs").write_bytes(asset_bytes)
         _, report = invoke(default_root_manifest)
         require(report is not None and report["status"] == "passed", "omitted root should use manifest directory")
-        require(report["root"] == str(work.resolve()), "omitted root should resolve to manifest directory")
+        expected_default_root = work.resolve()
+        reported_default_root = Path(report["root"])
+        require(
+            reported_default_root == expected_default_root,
+            f"omitted root should resolve to manifest directory: {reported_default_root!r} != {expected_default_root!r}",
+        )
 
         root_link = work / "root-link"
         try:
@@ -646,7 +684,11 @@ def main() -> int:
             )
             _, report = invoke(linked_root_manifest)
             require(report is not None and report["status"] == "passed", "explicit symlink root should resolve once")
-            require(report["root"] == str(bundle.resolve()), "report root should be the canonical root target")
+            reported_root = Path(report["root"])
+            require(
+                reported_root == expected_root,
+                f"report root should be the canonical root target: {reported_root!r} != {expected_root!r}",
+            )
 
         # Missing files are reported together; invalid Core bytes fail their declared wasm entry.
         (bundle / "broken.wasm").write_bytes(b"not wasm")

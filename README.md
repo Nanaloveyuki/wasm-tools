@@ -67,6 +67,8 @@ moonrun _build/wasm/release/build/wasm-tools.wasm -- bundle check "$bundle_examp
 
 仅检查普通文件及 Core 字节时不依赖 Node；声明压缩副本或消费入口时需要 Node.js 20+，可通过 `--node PATH` 指定。缺少运行时属于 IO 错误。JSON/Markdown 输出不得覆盖清单或声明文件，不接受符号链接目标；后续 JSON 写入失败时恢复已有 Markdown 内容。
 
+报告的 `manifest` 和 `root` 记录真实路径；相对 `root` 的解析起点仍是传入清单路径所在目录。
+
 消费入口是项目自己的代码，必须自行关闭 Worker 等句柄。子进程仅保留 PATH、系统路径和临时目录环境变量，业务参数通过 `args` 传入。临时目录与清除 `NODE_OPTIONS`/`NODE_PATH` 用于暴露源码目录里的相对依赖漏发；它不限制代码的绝对路径、网络或其他进程访问，也不限制进程内存。首版不验证浏览器环境、不安装 npm 依赖、不检查 tar/zip、npm 包或 OCI 镜像。
 
 ## 单产物策略与处理
