@@ -50,6 +50,7 @@ if [[ -n "${GITHUB_PATH:-}" ]]; then
   printf '%s\n' "$moon_bin" >> "$GITHUB_PATH"
 fi
 
+moon -C "$action_root" update
 target_dir="$(mktemp -d "$runner_temp/wasm-tools-action-build.XXXXXX")"
 moon -C "$action_root" build --target wasm --release --target-dir "$target_dir"
 cli_wasm="$target_dir/wasm/release/build/wasm-tools.wasm"
