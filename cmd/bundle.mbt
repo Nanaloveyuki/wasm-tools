@@ -64,20 +64,12 @@ pub async fn cmd_bundle(args : Array[String]) -> Int32 raise @cli.CliError {
   )
   let capture = bundle_capture(root, manifest)
   let findings = capture.findings
-  // Later gates replace these explicit failures with delegated checks.
-  for file in manifest.files {
-    if file.encoding is Identity {
-      continue
-    }
-    if capture.data.contains(file.path) {
-      findings.push({
-        code: "encoding_unsupported",
-        path: file.path,
-        related_path: file.source,
-        message: "encoded-file checks are not implemented yet",
-      })
-    }
-  }
+  let compressions = bundle_check_compressions(
+    manifest,
+    capture.data,
+    findings,
+    nodes.get(0).unwrap_or("node"),
+  )
   for consumer in manifest.consumers {
     findings.push({
       code: "consumer_unsupported",
@@ -91,7 +83,7 @@ pub async fn cmd_bundle(args : Array[String]) -> Int32 raise @cli.CliError {
     root,
     capture.observations,
     findings,
-    [],
+    compressions,
     [],
   )
   bundle_write_reports(options.output, summary, report, bundle_markdown(report))
@@ -124,7 +116,9 @@ async fn bundle_protect_reports(
   let targets : Array[String] = []
   for report in reports {
     if report is Some(report) && report != "-" {
-      let kind = Some(@fs.kind(report, follow_symlink=false)) catch { _ => None }
+      let kind = Some(@fs.kind(report, follow_symlink=false)) catch {
+        _ => None
+      }
       if kind == Some(SymLink) {
         raise @cli.CliError::Usage("report output must not be a symlink")
       }

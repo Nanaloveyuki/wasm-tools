@@ -38,6 +38,10 @@ def main() -> int:
     moonrun = shutil.which("moonrun")
     require(moonrun is not None, "moonrun is required to run the built wasm CLI")
     require(WASM_CLI.is_file(), f"built wasm CLI not found: {WASM_CLI}")
+    node = shutil.which("node")
+    require(node is not None, "Node 20+ is required to create compression fixtures")
+    node_major = run([node, "--version"]).stdout.strip().removeprefix("v").split(".")[0]
+    require(int(node_major) >= 20, f"Node 20+ is required to create compression fixtures, found {node_major}")
 
     with tempfile.TemporaryDirectory(prefix="wsm-bundle-check-") as temp:
         work = Path(temp)
@@ -67,11 +71,14 @@ def main() -> int:
             expected: int = 0,
             report_path: Path | None = None,
             summary_path: Path | None = None,
+            node_path: str | None = None,
         ) -> tuple[subprocess.CompletedProcess[str], dict[str, object] | None]:
             report_path = report_path or work / f"{manifest.stem}.report.json"
             command = [moonrun, str(WASM_CLI), "--", "bundle", "check", str(manifest), "-o", str(report_path)]
             if summary_path is not None:
                 command.extend(["--summary", str(summary_path)])
+            if node_path is not None:
+                command.extend(["--node", node_path])
             result = run(command, expected=expected)
             if expected == 2:
                 return result, None
@@ -81,6 +88,21 @@ def main() -> int:
             require(report.get("format_version") == 1, "wrong bundle report version")
             require(report.get("mode") == "bundle-check", "wrong bundle report mode")
             return result, report
+
+        def compress(source: Path, gzip_path: Path, brotli_path: Path) -> None:
+            script = (
+                "const fs = require('node:fs'); "
+                "const zlib = require('node:zlib'); "
+                "const input = fs.readFileSync(process.argv[1]); "
+                "fs.writeFileSync(process.argv[2], zlib.gzipSync(input)); "
+                "fs.writeFileSync(process.argv[3], zlib.brotliCompressSync(input));"
+            )
+            run([node, "-e", script, str(source), str(gzip_path), str(brotli_path)])
+
+        def compression_manifest(name: str, *files: dict[str, str]) -> Path:
+            value = manifest_for(*files)
+            value["root"] = "bundle"
+            return write_manifest(name, value)
 
         # A real Core module and an ordinary asset produce a stable report and separate summary.
         bundle = work / "bundle"
@@ -111,6 +133,162 @@ def main() -> int:
         require(report["compressions"] == [] and report["consumers"] == [], "optional report sections mismatch")
         require(summary_path.is_file(), "Markdown summary was not written")
         require(summary_path.read_text(encoding="utf-8").strip(), "Markdown summary is empty")
+
+        app_gzip = bundle / "app.wasm.gz"
+        app_brotli = bundle / "app.wasm.br"
+        compress(wasm, app_gzip, app_brotli)
+        compressed_manifest = compression_manifest(
+            "compressed-valid",
+            {"path": "app.wasm", "kind": "wasm"},
+            {"path": "app.wasm.gz", "encoding": "gzip", "source": "app.wasm"},
+            {"path": "app.wasm.br", "encoding": "br", "source": "app.wasm"},
+        )
+        _, report = invoke(compressed_manifest, node_path=node)
+        require(report is not None and report["status"] == "passed", "valid gzip and Brotli bundle should pass")
+        compressions = {row["path"]: row for row in report["compressions"]}
+        for path, encoding in (("app.wasm.gz", "gzip"), ("app.wasm.br", "br")):
+            row = compressions[path]
+            require(row["source"] == "app.wasm", f"{path}: source mismatch")
+            require(row["encoding"] == encoding, f"{path}: encoding mismatch")
+            require(row["status"] == "passed", f"{path}: compression should pass")
+            require(row["decoded_bytes"] == len(wasm_bytes), f"{path}: decoded size mismatch")
+            require(
+                row["decoded_sha256"] == hashlib.sha256(wasm_bytes).hexdigest(),
+                f"{path}: decoded digest mismatch",
+            )
+
+        # Older valid modules fail when their bytes do not match the declared source.
+        same_size_wat = work / "older-same-size.wat"
+        same_size_wasm = work / "older-same-size.wasm"
+        same_size_wat.write_text(
+            '(module (func (export "answer") (result i32) i32.const 41))\n',
+            encoding="utf-8",
+        )
+        run([moonrun, str(WASM_CLI), "--", "parse", str(same_size_wat), "-o", str(same_size_wasm)])
+        same_size_bytes = same_size_wasm.read_bytes()
+        require(len(same_size_bytes) == len(wasm_bytes), "same-size stale fixture should match raw byte length")
+        longer_wat = work / "older-longer.wat"
+        longer_wasm = work / "older-longer.wasm"
+        longer_wat.write_text(
+            '(module (func (export "answer_from_a_much_older_build") (result i32) i32.const 41))\n',
+            encoding="utf-8",
+        )
+        run([moonrun, str(WASM_CLI), "--", "parse", str(longer_wat), "-o", str(longer_wasm)])
+        longer_bytes = longer_wasm.read_bytes()
+        require(len(longer_bytes) > len(wasm_bytes) + 1, "long stale fixture should exceed source by more than one byte")
+        stale_same_gzip = work / "stale-same.gz"
+        unused_brotli = work / "unused-same.br"
+        compress(same_size_wasm, stale_same_gzip, unused_brotli)
+        unused_gzip = work / "unused-long.gz"
+        stale_long_brotli = work / "stale-long.br"
+        compress(longer_wasm, unused_gzip, stale_long_brotli)
+        (bundle / stale_same_gzip.name).write_bytes(stale_same_gzip.read_bytes())
+        (bundle / stale_long_brotli.name).write_bytes(stale_long_brotli.read_bytes())
+        stale_manifest = compression_manifest(
+            "stale-compressed",
+            {"path": "app.wasm", "kind": "wasm"},
+            {"path": stale_same_gzip.name, "encoding": "gzip", "source": "app.wasm"},
+            {"path": stale_long_brotli.name, "encoding": "br", "source": "app.wasm"},
+        )
+        _, report = invoke(stale_manifest, expected=1, node_path=node)
+        require(report is not None and report["status"] == "failed", "stale compressed members should fail")
+        stale_findings = report["findings"]
+        require(
+            any(
+                finding.get("code") == "compression_mismatch"
+                and finding.get("path") == stale_same_gzip.name
+                for finding in stale_findings
+            ),
+            "same-size stale module should report compression_mismatch",
+        )
+        require(
+            any(
+                finding.get("code") in {"compression_mismatch", "compression_invalid"}
+                and finding.get("path") == stale_long_brotli.name
+                for finding in stale_findings
+            ),
+            "oversized stale module should report a compression failure",
+        )
+
+        # Corrupt streams and trailing Brotli bytes are rejected.
+        (bundle / "corrupt.gz").write_bytes(b"not a gzip stream")
+        (bundle / "corrupt.br").write_bytes(b"not a Brotli stream")
+        (bundle / "trailing.br").write_bytes(app_brotli.read_bytes() + b"trailing bytes")
+        corrupt_manifest = compression_manifest(
+            "corrupt-compressed",
+            {"path": "app.wasm", "kind": "wasm"},
+            {"path": "corrupt.gz", "encoding": "gzip", "source": "app.wasm"},
+            {"path": "corrupt.br", "encoding": "br", "source": "app.wasm"},
+            {"path": "trailing.br", "encoding": "br", "source": "app.wasm"},
+        )
+        _, report = invoke(corrupt_manifest, expected=1, node_path=node)
+        require(report is not None and report["status"] == "failed", "corrupt compressed members should fail")
+        corrupt_compressions = {row["path"]: row for row in report["compressions"]}
+        require(corrupt_compressions["corrupt.gz"]["status"] == "failed", "corrupt gzip should fail")
+        require(corrupt_compressions["corrupt.br"]["status"] == "failed", "corrupt Brotli should fail")
+        require(corrupt_compressions["trailing.br"]["status"] == "failed", "trailing Brotli bytes should fail")
+
+        # Empty assets round-trip, while decompression output is bounded by its declared source.
+        empty_source = bundle / "empty.txt"
+        empty_source.write_bytes(b"")
+        empty_gzip = bundle / "empty.txt.gz"
+        empty_brotli = bundle / "empty.txt.br"
+        compress(empty_source, empty_gzip, empty_brotli)
+        empty_manifest = compression_manifest(
+            "empty-compressed",
+            {"path": "empty.txt"},
+            {"path": "empty.txt.gz", "encoding": "gzip", "source": "empty.txt"},
+            {"path": "empty.txt.br", "encoding": "br", "source": "empty.txt"},
+        )
+        _, report = invoke(empty_manifest, node_path=node)
+        require(report is not None and report["status"] == "passed", "empty gzip/Brotli members should pass")
+        require(all(row["decoded_bytes"] == 0 for row in report["compressions"]), "empty decoded size should be zero")
+
+        tiny_source = bundle / "tiny.txt"
+        tiny_source.write_bytes(b"x")
+        large_input = work / "large-input.bin"
+        large_input.write_bytes(b"z" * (1024 * 1024))
+        unused_tiny_gzip = work / "tiny.gz"
+        large_brotli = work / "large.br"
+        compress(large_input, unused_tiny_gzip, large_brotli)
+        (bundle / large_brotli.name).write_bytes(large_brotli.read_bytes())
+        limit_manifest = compression_manifest(
+            "compression-output-limit",
+            {"path": "tiny.txt"},
+            {"path": "large.br", "encoding": "br", "source": "tiny.txt"},
+        )
+        _, report = invoke(limit_manifest, expected=1, node_path=node)
+        require(report is not None and report["status"] == "failed", "decompression output limit should fail")
+        require(report["compressions"][0]["status"] == "failed", "over-limit decompression should fail its member")
+
+        # Missing input members are skipped after file capture findings; Node is optional otherwise.
+        missing_source_copy = bundle / "missing-source.wasm.gz"
+        missing_source_copy.write_bytes(app_gzip.read_bytes())
+        missing_inputs_manifest = compression_manifest(
+            "missing-compressed-inputs",
+            {"path": "missing-source.wasm", "kind": "wasm"},
+            {"path": missing_source_copy.name, "encoding": "gzip", "source": "missing-source.wasm"},
+            {"path": "app.wasm", "kind": "wasm"},
+            {"path": "absent-copy.br", "encoding": "br", "source": "app.wasm"},
+        )
+        _, report = invoke(missing_inputs_manifest, expected=1, node_path=node)
+        require(report is not None and report["status"] == "failed", "missing compression members should fail")
+        skipped = {row["path"]: row for row in report["compressions"] if row["status"] == "skipped"}
+        require(missing_source_copy.name in skipped, "missing source should skip its compression check")
+        require("absent-copy.br" in skipped, "missing compressed copy should be skipped")
+
+        absent_node = str(work / "no-such-node")
+        missing_node_report = work / "missing-node.report.json"
+        invoke(
+            compressed_manifest,
+            expected=2,
+            report_path=missing_node_report,
+            node_path=absent_node,
+        )
+        require(not missing_node_report.exists(), "missing Node should fail before writing a report")
+        no_compression_manifest = write_bundle_manifest("no-node-needed", {"path": "index.mjs"})
+        _, report = invoke(no_compression_manifest, node_path=absent_node)
+        require(report is not None and report["status"] == "passed", "uncompressed bundles should not need Node")
 
         default_root_manifest = write_manifest(
             "default-root",

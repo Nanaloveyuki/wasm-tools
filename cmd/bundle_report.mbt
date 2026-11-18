@@ -97,6 +97,29 @@ fn bundle_markdown(report : Json) -> String {
         )
       }
     }
+    if object.get("compressions") is Some(Json::Array(compressions)) &&
+      !compressions.is_empty() {
+      out.write_string(
+        "\n| Compressed file | Original | Encoding | Status | Decoded SHA-256 |\n| --- | --- | --- | --- | --- |\n",
+      )
+      for row in compressions {
+        out.write_string(
+          "| " +
+          markdown_cell(json_object_string(Some(row), "path").unwrap_or("")) +
+          " | " +
+          markdown_cell(json_object_string(Some(row), "source").unwrap_or("")) +
+          " | " +
+          markdown_cell(json_object_string(Some(row), "encoding").unwrap_or("")) +
+          " | " +
+          markdown_cell(json_object_string(Some(row), "status").unwrap_or("")) +
+          " | " +
+          markdown_cell(
+            json_object_string(Some(row), "decoded_sha256").unwrap_or(""),
+          ) +
+          " |\n",
+        )
+      }
+    }
   }
   out.to_string()
 }
