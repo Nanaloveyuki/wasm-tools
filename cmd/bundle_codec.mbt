@@ -42,7 +42,7 @@ async fn bundle_decode(
   let (exit_code, stdout, stderr) = @process.collect_output(
     node,
     args,
-    extra_env=bundle_codec_environment(),
+    extra_env=bundle_node_environment(),
     inherit_env=false,
     cwd=dir,
   ) catch {
@@ -66,7 +66,7 @@ async fn bundle_decode(
 }
 
 ///|
-fn bundle_codec_environment() -> Map[String, String] {
+fn bundle_node_environment() -> Map[String, String] {
   let parent = @env.get_env_vars()
   let environment : Map[String, String] = Map([])
   for key in ["PATH", "Path", "SystemRoot", "WINDIR", "TMP", "TEMP", "TMPDIR"] {

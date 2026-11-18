@@ -70,21 +70,19 @@ pub async fn cmd_bundle(args : Array[String]) -> Int32 raise @cli.CliError {
     findings,
     nodes.get(0).unwrap_or("node"),
   )
-  for consumer in manifest.consumers {
-    findings.push({
-      code: "consumer_unsupported",
-      path: consumer.entry,
-      related_path: None,
-      message: "consumer checks are not implemented yet: " + consumer.name,
-    })
-  }
+  let consumers = bundle_check_consumers(
+    manifest,
+    capture.data,
+    findings,
+    nodes.get(0).unwrap_or("node"),
+  )
   let report = bundle_report_json(
     manifest_path,
     root,
     capture.observations,
     findings,
     compressions,
-    [],
+    consumers,
   )
   bundle_write_reports(options.output, summary, report, bundle_markdown(report))
   if findings.is_empty() {

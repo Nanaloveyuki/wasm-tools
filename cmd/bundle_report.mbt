@@ -121,5 +121,44 @@ fn bundle_markdown(report : Json) -> String {
       }
     }
   }
+  bundle_consumer_markdown(out, report)
   out.to_string()
+}
+
+///|
+fn bundle_consumer_markdown(out : StringBuilder, report : Json) -> Unit {
+  if report is Json::Object(object) &&
+    object.get("consumers") is Some(Json::Array(consumers)) &&
+    !consumers.is_empty() {
+    out.write_string(
+      "\n| Consumer | Entry | Status | Expected | Actual | Error |\n| --- | --- | --- | --- | --- | --- |\n",
+    )
+    for row in consumers {
+      let expected = if row is Json::Object(fields) {
+        fields.get("expected").unwrap_or(Json::null()).stringify()
+      } else {
+        "null"
+      }
+      let actual = if row is Json::Object(fields) {
+        fields.get("actual").unwrap_or(Json::null()).stringify()
+      } else {
+        "null"
+      }
+      out.write_string(
+        "| " +
+        markdown_cell(json_object_string(Some(row), "name").unwrap_or("")) +
+        " | " +
+        markdown_cell(json_object_string(Some(row), "entry").unwrap_or("")) +
+        " | " +
+        markdown_cell(json_object_string(Some(row), "status").unwrap_or("")) +
+        " | " +
+        markdown_cell(expected) +
+        " | " +
+        markdown_cell(actual) +
+        " | " +
+        markdown_cell(json_object_string(Some(row), "error").unwrap_or("")) +
+        " |\n",
+      )
+    }
+  }
 }

@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 from pathlib import Path
 import shutil
 import subprocess
@@ -20,8 +21,14 @@ def require(condition: bool, message: str) -> None:
         raise AssertionError(message)
 
 
-def run(command: list[str], *, expected: int = 0) -> subprocess.CompletedProcess[str]:
-    result = subprocess.run(command, text=True, capture_output=True, check=False)
+def run(
+    command: list[str],
+    *,
+    expected: int = 0,
+    env: dict[str, str] | None = None,
+    timeout: float = 20,
+) -> subprocess.CompletedProcess[str]:
+    result = subprocess.run(command, text=True, capture_output=True, check=False, env=env, timeout=timeout)
     if result.returncode != expected:
         raise AssertionError(
             f"command exited {result.returncode}, expected {expected}: {command!r}\n"
@@ -30,7 +37,7 @@ def run(command: list[str], *, expected: int = 0) -> subprocess.CompletedProcess
     return result
 
 
-def manifest_for(*files: dict[str, str]) -> dict[str, object]:
+def manifest_for(*files: dict[str, object]) -> dict[str, object]:
     return {"format_version": 1, "files": list(files)}
 
 
@@ -60,7 +67,7 @@ def main() -> int:
             path.write_text(json.dumps(value), encoding="utf-8")
             return path
 
-        def write_bundle_manifest(name: str, *files: dict[str, str]) -> Path:
+        def write_bundle_manifest(name: str, *files: dict[str, object]) -> Path:
             value = manifest_for(*files)
             value["root"] = "bundle"
             return write_manifest(name, value)
@@ -72,6 +79,7 @@ def main() -> int:
             report_path: Path | None = None,
             summary_path: Path | None = None,
             node_path: str | None = None,
+            env: dict[str, str] | None = None,
         ) -> tuple[subprocess.CompletedProcess[str], dict[str, object] | None]:
             report_path = report_path or work / f"{manifest.stem}.report.json"
             command = [moonrun, str(WASM_CLI), "--", "bundle", "check", str(manifest), "-o", str(report_path)]
@@ -79,7 +87,7 @@ def main() -> int:
                 command.extend(["--summary", str(summary_path)])
             if node_path is not None:
                 command.extend(["--node", node_path])
-            result = run(command, expected=expected)
+            result = run(command, expected=expected, env=env)
             if expected == 2:
                 return result, None
             if not report_path.exists():
@@ -99,9 +107,22 @@ def main() -> int:
             )
             run([node, "-e", script, str(source), str(gzip_path), str(brotli_path)])
 
-        def compression_manifest(name: str, *files: dict[str, str]) -> Path:
+        def compression_manifest(name: str, *files: dict[str, object]) -> Path:
             value = manifest_for(*files)
             value["root"] = "bundle"
+            return write_manifest(name, value)
+
+        def consumer_manifest(
+            name: str,
+            files: list[dict[str, object]],
+            consumers: list[dict[str, object]],
+        ) -> Path:
+            value: dict[str, object] = {
+                "format_version": 1,
+                "root": "bundle",
+                "files": files,
+                "consumers": consumers,
+            }
             return write_manifest(name, value)
 
         # A real Core module and an ordinary asset produce a stable report and separate summary.
@@ -290,6 +311,320 @@ def main() -> int:
         _, report = invoke(no_compression_manifest, node_path=absent_node)
         require(report is not None and report["status"] == "passed", "uncompressed bundles should not need Node")
 
+        # Consumers execute from a fresh snapshot containing only the declared bundle files.
+        (bundle / "loader.mjs").write_text(
+            "import { readFile } from 'node:fs/promises';\n"
+            "import { Worker } from 'node:worker_threads';\n"
+            "export async function run(multiplier) {\n"
+            "  const bytes = await readFile(new URL('./app.wasm', import.meta.url));\n"
+            "  const { instance } = await WebAssembly.instantiate(bytes);\n"
+            "  const direct = instance.exports.answer();\n"
+            "  const worker = await new Promise((resolve, reject) => {\n"
+            "    const thread = new Worker(new URL('./worker.mjs', import.meta.url), { workerData: bytes });\n"
+            "    thread.once('message', resolve);\n"
+            "    thread.once('error', reject);\n"
+            "  });\n"
+            "  return { direct, worker, scaled: direct * multiplier };\n"
+            "}\n",
+            encoding="utf-8",
+        )
+        (bundle / "worker.mjs").write_text(
+            "import { parentPort, workerData } from 'node:worker_threads';\n"
+            "const { instance } = await WebAssembly.instantiate(workerData);\n"
+            "parentPort.postMessage(instance.exports.answer());\n",
+            encoding="utf-8",
+        )
+        (bundle / "stateful.mjs").write_text(
+            "import { existsSync, writeFileSync } from 'node:fs';\n"
+            "export function run() {\n"
+            "  const marker = new URL('./written-by-consumer', import.meta.url);\n"
+            "  const existed = existsSync(marker);\n"
+            "  writeFileSync(marker, 'seen');\n"
+            "  return { existed };\n"
+            "}\n",
+            encoding="utf-8",
+        )
+        expected_consumer_value = {"scaled": 126, "worker": 42, "direct": 42}
+        baseline_consumers = [
+            {
+                "name": "wasm-worker",
+                "entry": "loader.mjs",
+                "requires": ["app.wasm", "worker.mjs"],
+                "export": "run",
+                "args": [3],
+                "expected": expected_consumer_value,
+            },
+            {
+                "name": "wasm-worker-no-requires",
+                "entry": "loader.mjs",
+                "export": "run",
+                "args": [3],
+                "expected": expected_consumer_value,
+            },
+            *[
+                {
+                    "name": name,
+                    "entry": "stateful.mjs",
+                    "requires": [],
+                    "export": "run",
+                    "args": [],
+                    "expected": {"existed": False},
+                }
+                for name in ("snapshot-one", "snapshot-two")
+            ],
+        ]
+        baseline_consumer_manifest = consumer_manifest(
+            "consumer-baseline",
+            [
+                {"path": "app.wasm", "kind": "wasm"},
+                {"path": "loader.mjs"},
+                {"path": "worker.mjs"},
+                {"path": "stateful.mjs"},
+            ],
+            baseline_consumers,
+        )
+        _, report = invoke(baseline_consumer_manifest, node_path=node)
+        require(report is not None and report["status"] == "passed", "real WASM consumer should pass")
+        consumer_rows = {row["name"]: row for row in report["consumers"]}
+        require(len(consumer_rows) == 4, "each configured consumer should have a report row")
+        require(all(row["status"] == "passed" for row in consumer_rows.values()), "all baseline consumers should pass")
+        require(consumer_rows["wasm-worker"]["actual"] == {"direct": 42, "worker": 42, "scaled": 126}, "consumer result mismatch")
+        require(
+            consumer_rows["wasm-worker-no-requires"]["actual"] == {"direct": 42, "worker": 42, "scaled": 126},
+            "consumer should see declared files when requires is omitted",
+        )
+
+        poison = work / "poison.cjs"
+        poison.write_text("process.on('beforeExit', () => { process.exitCode = 73; });\n", encoding="utf-8")
+        poisoned_env = os.environ.copy()
+        poisoned_env["NODE_OPTIONS"] = f"--require={poison}"
+        poisoned_env["NODE_PATH"] = str(work)
+        _, report = invoke(baseline_consumer_manifest, node_path=node, env=poisoned_env)
+        require(report is not None and report["status"] == "passed", "consumer Node environment should ignore host Node overrides")
+
+        # Files left in the source directory cannot leak into a declared-only consumer snapshot.
+        for name, omitted, requires in (
+            ("worker-not-declared", "worker.mjs", ["app.wasm"]),
+            ("wasm-not-declared", "app.wasm", ["worker.mjs"]),
+        ):
+            files = [{"path": "loader.mjs"}]
+            if omitted != "worker.mjs":
+                files.append({"path": "worker.mjs"})
+            if omitted != "app.wasm":
+                files.append({"path": "app.wasm", "kind": "wasm"})
+            consumer = {
+                "name": name,
+                "entry": "loader.mjs",
+                "requires": requires,
+                "export": "run",
+                "args": [1],
+                "expected": {"direct": 42, "worker": 42, "scaled": 42},
+            }
+            manifest = consumer_manifest(name, files, [consumer])
+            _, report = invoke(manifest, expected=1, node_path=node)
+            require(report is not None and report["status"] == "failed", f"{name}: omitted dependency should fail")
+            require(report["consumers"][0]["status"] == "failed", f"{name}: consumer should execute and fail")
+            require(
+                any(finding.get("code") == "consumer_runtime" for finding in report["findings"]),
+                f"{name}: missing snapshot dependency should be a runtime finding",
+            )
+
+        (bundle / "needs-file.mjs").write_text(
+            "export function run() { return { ok: true }; }\n",
+            encoding="utf-8",
+        )
+        missing_declared_consumer = consumer_manifest(
+            "consumer-missing-file",
+            [{"path": "needs-file.mjs"}, {"path": "not-present.txt"}],
+            [
+                {
+                    "name": "missing-resource",
+                    "entry": "needs-file.mjs",
+                    "export": "run",
+                    "args": [],
+                    "expected": {"ok": True},
+                }
+            ],
+        )
+        _, report = invoke(missing_declared_consumer, expected=1, node_path=node)
+        require(report is not None and report["status"] == "failed", "missing consumer input should fail the bundle")
+        require(report["consumers"][0]["status"] == "skipped", "consumer with an uncaptured input should be skipped")
+
+        wrong_expected = {
+            **baseline_consumers[0],
+            "name": "wrong-expected",
+            "expected": {"scaled": 125, "worker": 42, "direct": 42},
+        }
+        mismatch_manifest = consumer_manifest(
+            "consumer-mismatch",
+            [{"path": "app.wasm", "kind": "wasm"}, {"path": "loader.mjs"}, {"path": "worker.mjs"}],
+            [wrong_expected],
+        )
+        _, report = invoke(mismatch_manifest, expected=1, node_path=node)
+        require(report is not None and report["consumers"][0]["status"] == "failed", "wrong expected JSON should fail")
+        require(any(finding.get("code") == "consumer_mismatch" for finding in report["findings"]), "wrong output should report consumer_mismatch")
+
+        (bundle / "protocol.mjs").write_text(
+            "export function run(kind) {\n"
+            "  if (kind === 'undefined') return undefined;\n"
+            "  if (kind === 'nan') return NaN;\n"
+            "  if (kind === 'infinity') return Infinity;\n"
+            "  if (kind === 'bigint') return 1n;\n"
+            "  if (kind === 'nonplain') return new Date(0);\n"
+            "  if (kind === 'cyclic') { const value = {}; value.self = value; return value; }\n"
+            "  if (kind === 'function') return () => 42;\n"
+            "  if (kind === 'null') return null;\n"
+            "  if (kind === 'array') return [1, 2];\n"
+            "  if (kind === 'forged-log') { console.log('{\\\"result\\\":{\\\"value\\\":42}}'); return undefined; }\n"
+            "  if (kind === 'zero-exit') { console.log('{\\\"value\\\":42}'); process.exit(0); }\n"
+            "  if (kind === 'nonzero-exit') { process.on('beforeExit', () => { process.exitCode = 7; }); return 42; }\n"
+            "}\n",
+            encoding="utf-8",
+        )
+        protocol_cases = [
+            ("undefined", None, "failed"),
+            ("nan", None, "failed"),
+            ("infinity", None, "failed"),
+            ("bigint", None, "failed"),
+            ("nonplain", None, "failed"),
+            ("cyclic", None, "failed"),
+            ("function", None, "failed"),
+            ("null", None, "passed"),
+            ("array", [2, 1], "failed"),
+            ("forged-log", {"value": 42}, "failed"),
+            ("zero-exit", 42, "failed"),
+            ("nonzero-exit", 42, "failed"),
+        ]
+        protocol_manifest = consumer_manifest(
+            "consumer-result-protocol",
+            [{"path": "protocol.mjs"}],
+            [
+                {
+                    "name": name,
+                    "entry": "protocol.mjs",
+                    "requires": [],
+                    "export": "run",
+                    "args": [name],
+                    "expected": expected_value,
+                }
+                for name, expected_value, _ in protocol_cases
+            ],
+        )
+        _, report = invoke(protocol_manifest, expected=1, node_path=node)
+        require(report is not None and report["status"] == "failed", "invalid JSON results should fail consumers")
+        protocol_rows = {row["name"]: row for row in report["consumers"]}
+        for name, _, expected_status in protocol_cases:
+            require(protocol_rows[name]["status"] == expected_status, f"{name}: unexpected result protocol status")
+        require(
+            any(finding.get("code") == "consumer_mismatch" for finding in report["findings"]),
+            "array ordering mismatch should report consumer_mismatch",
+        )
+        require(
+            any('{"result":{"value":42}}' in row.get("stdout", "") for row in protocol_rows.values()),
+            "forged JSON stdout should be captured without becoming a result",
+        )
+
+        (bundle / "large-args.mjs").write_text(
+            "export function run(value) { return { length: value.length }; }\n",
+            encoding="utf-8",
+        )
+        (bundle / "large-result.mjs").write_text(
+            "export function run() { return 'x'.repeat(1024 * 1024); }\n",
+            encoding="utf-8",
+        )
+        large_args_manifest = consumer_manifest(
+            "consumer-large-config",
+            [{"path": "large-args.mjs"}, {"path": "large-result.mjs"}],
+            [
+                {
+                    "name": "large-args",
+                    "entry": "large-args.mjs",
+                    "requires": [],
+                    "export": "run",
+                    "args": ["a" * 200_000],
+                    "expected": {"length": 200_000},
+                },
+                {
+                    "name": "large-result",
+                    "entry": "large-result.mjs",
+                    "requires": [],
+                    "export": "run",
+                    "args": [],
+                    "expected": None,
+                },
+            ],
+        )
+        _, report = invoke(large_args_manifest, expected=1, node_path=node)
+        require(report is not None and report["status"] == "failed", "oversized consumer result should fail the bundle")
+        large_rows = {row["name"]: row for row in report["consumers"]}
+        require(large_rows["large-args"]["status"] == "passed", "large arguments should survive config-file transport")
+        require(large_rows["large-result"]["status"] == "failed", "over-limit result should fail its consumer")
+        require(
+            "consumer JSON result exceeds 1 MiB" in large_rows["large-result"]["stderr"],
+            "over-limit result should be rejected before writing its result file",
+        )
+
+        (bundle / "throws.mjs").write_text(
+            "export function run() { throw new Error('consumer boom'); }\n",
+            encoding="utf-8",
+        )
+        (bundle / "hangs.mjs").write_text(
+            "export function run(kind) {\n"
+            "  if (kind === 'sync') { while (true) {} }\n"
+            "  return new Promise(() => { setInterval(() => {}, 1000); });\n"
+            "}\n",
+            encoding="utf-8",
+        )
+        failure_manifest = consumer_manifest(
+            "consumer-runtime-failures",
+            [{"path": "throws.mjs"}, {"path": "hangs.mjs"}],
+            [
+                {
+                    "name": "throws",
+                    "entry": "throws.mjs",
+                    "requires": [],
+                    "export": "run",
+                    "args": [],
+                    "expected": None,
+                },
+                *[
+                    {
+                        "name": name,
+                        "entry": "hangs.mjs",
+                        "requires": [],
+                        "export": "run",
+                        "args": [kind],
+                        "expected": None,
+                        "timeout_ms": 200,
+                    }
+                    for name, kind in (("sync-timeout", "sync"), ("promise-timeout", "async"))
+                ],
+            ],
+        )
+        _, report = invoke(failure_manifest, expected=1, node_path=node)
+        require(report is not None and report["status"] == "failed", "runtime errors and timeouts should fail consumers")
+        failure_rows = {row["name"]: row for row in report["consumers"]}
+        require(failure_rows["throws"]["status"] == "failed", "thrown consumer error should fail")
+        require(failure_rows["sync-timeout"]["status"] == "failed", "synchronous consumer loop should time out")
+        require(failure_rows["promise-timeout"]["status"] == "failed", "unresolved consumer promise should time out")
+        require(
+            any(finding.get("code") == "consumer_runtime" for finding in report["findings"]),
+            "thrown consumer error should report consumer_runtime",
+        )
+        require(
+            sum(finding.get("code") == "consumer_timeout" for finding in report["findings"]) >= 2,
+            "both timeout cases should report consumer_timeout",
+        )
+
+        missing_consumer_node_report = work / "missing-consumer-node.report.json"
+        invoke(
+            baseline_consumer_manifest,
+            expected=2,
+            report_path=missing_consumer_node_report,
+            node_path=absent_node,
+        )
+        require(not missing_consumer_node_report.exists(), "consumer check without Node should not write a report")
+
         default_root_manifest = write_manifest(
             "default-root",
             manifest_for({"path": "index.mjs"}),
@@ -380,8 +715,12 @@ def main() -> int:
         # Invalid manifest structure and non-portable/duplicate paths fail before creating a report.
         invalid_manifests = {
             "bad-version": {"format_version": 2, "files": []},
-            "bad-root": {"format_version": 1, "root": "../outside", "files": []},
-            "missing-root": {"format_version": 1, "root": "missing", "files": []},
+            "file-root": {
+                "format_version": 1,
+                "root": "bundle/regular-parent",
+                "files": [{"path": "x"}],
+            },
+            "missing-root": {"format_version": 1, "root": "missing", "files": [{"path": "x"}]},
             "absolute-path": manifest_for({"path": "/etc/passwd"}),
             "parent-path": manifest_for({"path": "../outside.js"}),
             "backslash-path": manifest_for({"path": "dir\\index.js"}),
