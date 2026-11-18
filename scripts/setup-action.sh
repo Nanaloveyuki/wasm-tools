@@ -11,6 +11,17 @@ case "${INPUT_MODE:-check}" in
   *) printf 'mode must be check or prepare; got %s.\n' "$INPUT_MODE" >&2; exit 2 ;;
 esac
 
+case "${INPUT_COMMAND:-release}" in
+  release) ;;
+  bundle)
+    if [[ "${INPUT_MODE:-check}" != check ]]; then
+      printf 'bundle supports check mode only.\n' >&2
+      exit 2
+    fi
+    ;;
+  *) printf 'command must be release or bundle.\n' >&2; exit 2 ;;
+esac
+
 case "${INPUT_INSTALL_MOONHOSTABI:-false}" in
   true|false) ;;
   *) printf 'install-moonhostabi must be true or false.\n' >&2; exit 2 ;;

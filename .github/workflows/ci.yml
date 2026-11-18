@@ -15,6 +15,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
       - name: Setup pinned MoonBit (Linux/macOS)
         if: runner.os != 'Windows'
         shell: bash
@@ -75,12 +79,20 @@ jobs:
         if: runner.os == 'Linux'
         run: node tests/action-runner.mjs
 
+      - name: Release bundle consistency and real consumers
+        shell: bash
+        run: python3 tests/bundle-check.py
+
   release-action:
     runs-on: ubuntu-latest
     permissions:
       contents: read
     steps:
       - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
 
       - name: Prepare release-policy fixtures
         env:
@@ -139,16 +151,52 @@ jobs:
           config: ${{ runner.temp }}/wsm-action-fixtures/fail.json
           mode: prepare
 
+      - name: Prepare a real MoonBit bundle
+        run: |
+          node scripts/make-bundle-example.mjs "$RUNNER_TEMP/wsm-action-bundle" "$(dirname "$WSM_CLI_WASM")/examples/examples.wasm"
+
+      - name: Check the release bundle
+        id: bundle
+        uses: ./
+        with:
+          command: bundle
+          config: ${{ runner.temp }}/wsm-action-bundle/bundle.json
+
+      - name: Leave an old gzip copy in the bundle
+        run: |
+          python3 - <<'PY'
+          import gzip, os
+          from pathlib import Path
+          package = Path(os.environ['RUNNER_TEMP']) / 'wsm-action-bundle' / 'package'
+          (package / 'calculator.wasm.gz').write_bytes(gzip.compress(b'\0asm\1\0\0\0'))
+          PY
+
+      - name: Reject the stale compressed release copy
+        id: bundle_reject
+        continue-on-error: true
+        uses: ./
+        with:
+          command: bundle
+          config: ${{ runner.temp }}/wsm-action-bundle/bundle.json
+
       - name: Verify Action outcomes
         env:
           REJECT_OUTCOME: ${{ steps.reject.outcome }}
           REJECT_STATUS: ${{ steps.reject.outputs.status }}
           REJECT_DIRECTORY: ${{ steps.reject.outputs.prepared-dir }}
           ABI_REPORT: ${{ steps.abi.outputs.report-json }}
+          BUNDLE_REPORT: ${{ steps.bundle.outputs.report-json }}
+          BUNDLE_REJECT_REPORT: ${{ steps.bundle_reject.outputs.report-json }}
+          BUNDLE_REJECT_OUTCOME: ${{ steps.bundle_reject.outcome }}
+          BUNDLE_REJECT_STATUS: ${{ steps.bundle_reject.outputs.status }}
+          BUNDLE_PREPARED_DIR: ${{ steps.bundle.outputs.prepared-dir }}
         run: |
           test "$REJECT_OUTCOME" = failure
           test "$REJECT_STATUS" = failed
           test -z "$REJECT_DIRECTORY"
+          test "$BUNDLE_REJECT_OUTCOME" = failure
+          test "$BUNDLE_REJECT_STATUS" = failed
+          test -z "$BUNDLE_PREPARED_DIR"
           python3 - <<'PY'
           import json, os
           from pathlib import Path
@@ -157,6 +205,14 @@ jobs:
           assert abi['passed'] and abi['exit_code'] == 0
           assert abi['report']['outcome'] == 'compatible'
           assert abi['report']['artifact']['sha256'] == report['artifacts'][0]['after']['sha256']
+          bundle = json.loads(Path(os.environ['BUNDLE_REPORT']).read_text())
+          assert bundle['mode'] == 'bundle-check' and bundle['status'] == 'passed'
+          assert len(bundle['compressions']) == 2
+          assert all(row['status'] == 'passed' for row in bundle['compressions'])
+          assert bundle['consumers'][0]['actual'] == {'direct': 42, 'worker': 42}
+          rejected = json.loads(Path(os.environ['BUNDLE_REJECT_REPORT']).read_text())
+          assert rejected['status'] == 'failed'
+          assert any(row['code'] == 'compression_mismatch' for row in rejected['findings'])
           PY
 
       - name: Upload release reports
@@ -169,4 +225,8 @@ jobs:
             ${{ steps.prepare.outputs.summary }}
             ${{ steps.abi.outputs.report-json }}
             ${{ steps.reject.outputs.report-json }}
+            ${{ steps.bundle.outputs.report-json }}
+            ${{ steps.bundle.outputs.summary }}
+            ${{ steps.bundle_reject.outputs.report-json }}
+            ${{ steps.bundle_reject.outputs.summary }}
           if-no-files-found: warn

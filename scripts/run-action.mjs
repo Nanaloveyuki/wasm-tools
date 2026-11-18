@@ -54,6 +54,7 @@ async function main() {
   const summaryPath = path.join(invocationDir, 'summary.md');
   const configInput = process.env.INPUT_CONFIG || '';
   const mode = (process.env.INPUT_MODE || 'check').trim();
+  const command = (process.env.INPUT_COMMAND || 'release').trim();
   const outInput = (process.env.INPUT_OUT_DIR || '').trim();
   const abiInput = process.env.INPUT_MOONHOSTABI || 'moonhostabi';
   const wasmOptInput = (process.env.INPUT_WASM_OPT || '').trim();
@@ -67,17 +68,23 @@ async function main() {
 
   try {
     if (!configInput) throw new Error('config is required');
+    if (!['release', 'bundle'].includes(command)) throw new Error('command must be release or bundle');
     if (mode !== 'check' && mode !== 'prepare') throw new Error(`mode must be check or prepare; got ${mode}`);
+    if (command === 'bundle' && mode !== 'check') throw new Error('bundle supports check mode only');
+    if (command === 'bundle' && (outInput || wasmOptInput)) throw new Error('out-dir and wasm-opt require release prepare');
     if (mode === 'check' && outInput) throw new Error('out-dir is only valid in prepare mode');
 
     const configPath = path.resolve(workspace, configInput);
-    const args = [cliWasm, '--', 'release', mode, configPath, '-o', reportPath, '--summary', summaryPath];
+    const args = [cliWasm, '--', command, mode, configPath, '-o', reportPath, '--summary', summaryPath];
     if (mode === 'prepare') {
       preparedDir = outInput ? path.resolve(workspace, outInput) : path.join(invocationDir, 'artifacts');
       args.push('--out-dir', preparedDir);
     }
-    if (abiInput) args.push('--moonhostabi', abiInput);
-    if (wasmOptInput) args.push('--wasm-opt', wasmOptInput);
+    if (command === 'bundle') args.push('--node', process.execPath);
+    else {
+      if (abiInput) args.push('--moonhostabi', abiInput);
+      if (wasmOptInput) args.push('--wasm-opt', wasmOptInput);
+    }
 
     const result = spawnSync(process.env.MOONRUN || 'moonrun', args, {
       cwd: workspace,
@@ -96,17 +103,22 @@ async function main() {
       report = JSON.parse(await readFile(reportPath, 'utf8'));
       reportJson = reportPath;
     } catch {
-      diagnostic = result.stderr || result.stdout || `release ${mode} exited with code ${resultCode} without a JSON report`;
+      diagnostic = result.stderr || result.stdout || `${command} ${mode} exited with code ${resultCode} without a JSON report`;
     }
-    if (report && typeof report.status === 'string') status = report.status;
-    else status = 'error';
+    const expectedMode = command === 'bundle' ? 'bundle-check' : mode;
+    if (report && report.format_version === 1 && report.mode === expectedMode && ['passed', 'failed', 'error'].includes(report.status)) {
+      status = report.status;
+    } else {
+      status = 'error';
+      if (report) diagnostic = 'CLI produced an unrecognized report schema or mode';
+    }
 
     if (resultCode === 0 && (!report || status !== 'passed')) {
       resultCode = 1;
-      if (!diagnostic) diagnostic = `release ${mode} exited successfully without a passed JSON report`;
+      if (!diagnostic) diagnostic = `${command} ${mode} exited successfully without a passed JSON report`;
     } else if (resultCode !== 0 && status === 'passed') {
       status = 'error';
-      diagnostic ||= `release ${mode} exited with code ${resultCode} despite a passed report`;
+      diagnostic ||= `${command} ${mode} exited with code ${resultCode} despite a passed report`;
     }
 
     if (resultCode === 0 && status === 'passed' && mode === 'prepare' && preparedDir) {
@@ -135,7 +147,7 @@ async function main() {
     diagnostic = error instanceof Error ? error.message : String(error);
     preparedDir = '';
     reportJson = '';
-    process.stderr.write(`wasm-tools release action: ${diagnostic}\n`);
+    process.stderr.write(`wasm-tools action: ${diagnostic}\n`);
   }
 
   const fallback = [

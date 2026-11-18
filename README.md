@@ -1,24 +1,77 @@
 # wasm-tools
 
-使用 MoonBit 实现的 WASM 发布产物检查与处理工具，提供本地 `wsm` CLI、可复用的规则 API 和 GitHub Action。
+使用 MoonBit 实现的 WASM 发布包一致性检查工具，提供本地 `wsm` CLI、清单解析 API 和 GitHub Action。
 
-同一份发布配置可以检查多个产物的体积、增长量、section 预算、宿主导入和 custom section；也可以先清理或优化，再对最终文件执行相同检查。结果包含 JSON、Markdown 和处理前后的 SHA-256，检查失败会阻止产物发布。
+`bundle check` 面向即将发布的目录：检查声明的 loader、Worker、WASM 和资源文件是否齐全，gzip/Brotli 副本解压后是否与原件一致，以及只复制声明文件后，指定 Node ESM 入口能否加载 WASM、启动 Worker 并返回预期结果。JSON 和 Markdown 报告记录文件 SHA-256、压缩关系与消费结果，失败时返回非零退出码。
+
+已有的 `release check/prepare` 继续提供单产物策略、处理后复检和批次输出。体积与增长预算属于辅助规则，详细归因分析可使用 moonsize 或 wasmslim。
 
 Core ABI 检查由可选的 **MoonHostABI native CLI** 执行。新发布流程不调用本仓库的旧契约比较器。
 
 ## 版本与运行
 
-`0.6.0` 是本次源码开发版本，尚未发布到 Mooncakes；已发布的 `0.5.1` 不包含 `release` 命令。当前请从源码运行，Action 需引用包含 `action.yml` 的仓库提交。
+`0.6.0` 是本次源码开发版本，尚未发布到 Mooncakes；已发布的 `0.5.1` 不包含 `bundle` 或 `release` 命令。当前请从源码运行，Action 需引用包含这些命令的仓库提交。
 
 编译器固定在 `.moonbit-toolchain`，本地与 Action 使用同一归档：
 
 ```sh
 curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash -s -- "$(cat .moonbit-toolchain)"
 export PATH="$HOME/.moon/bin:$PATH"
+moon update
 moon build --target wasm --release
 ```
 
-快速体验真实 MoonBit 产物：
+快速体验真实 MoonBit WASM、loader、Worker 和压缩副本（需要 Node.js 20+）：
+
+```sh
+bundle_example="$(mktemp -d)"
+node scripts/make-bundle-example.mjs "$bundle_example/release"
+moonrun _build/wasm/release/build/wasm-tools.wasm -- bundle check "$bundle_example/release/bundle.json" \
+  -o "$bundle_example/report.json" --summary "$bundle_example/report.md"
+```
+
+示例读取本仓库编译出的 `examples.wasm`，分别在主线程和 Worker 调用 MoonBit 的 `add(20, 22)`，两者都必须得到 `42`。生成器只写新目录；发布清单放在包目录之外。手动替换 `package/calculator.wasm.gz` 为其他版本的副本，即可观察压缩一致性失败。
+
+## 发布包清单
+
+清单显式列出要检查的发布文件，不自动推断 JavaScript 依赖或 npm 打包规则：
+
+```json
+{
+  "format_version": 1,
+  "root": "dist",
+  "files": [
+    { "path": "loader.mjs" },
+    { "path": "worker.mjs" },
+    { "path": "calculator.wasm", "kind": "wasm" },
+    { "path": "calculator.wasm.gz", "encoding": "gzip", "source": "calculator.wasm" },
+    { "path": "calculator.wasm.br", "encoding": "br", "source": "calculator.wasm" }
+  ],
+  "consumers": [{
+    "name": "node-worker",
+    "entry": "loader.mjs",
+    "requires": ["calculator.wasm", "worker.mjs"],
+    "export": "check",
+    "args": [20, 22],
+    "expected": { "direct": 42, "worker": 42 },
+    "timeout_ms": 5000
+  }]
+}
+```
+
+- `root` 相对清单所在目录解析，省略为 `.`，也可指定绝对路径；显式根目录先解析真实路径。其下文件必须使用 `/` 分隔的相对路径，拒绝越界、保留设备名、大小写重复、文件/目录前缀冲突和任一层符号链接。
+- `files` 为 1–256 项，捕获总量上限 64 MiB。`kind` 默认 `asset`，`wasm` 调用已有 Core 验证器；`encoding` 默认 `identity`。未知字段、重复 JSON key、错误类型和悬空引用都报配置错误。未声明的文件不复制到消费目录。
+- gzip/br 必须引用已声明的 identity 原件，禁止压缩链。文件只读取一次，哈希、解压比对和消费副本都使用捕获的字节。解码由 Node 标准库完成，MoonBit 比较完整字节；解压上限为原件长度加一，拒绝解码器未消费的尾部数据（含填充）。
+- `consumers` 可省略，最多 16 项。入口必须是已声明的 identity `.mjs` 文件；`export` 为要调用的函数名，`args` 默认 `[]`，`expected` 必填且可为 `null`。`requires` 可省略，用于校验显式引用；每个用例仍获得全部声明文件。对象键顺序不影响 JSON 比较，数组顺序影响结果。
+- 每个用例在新的目录和 Node 子进程运行，默认超时 5000 ms，可设为 100–60000 ms。未捕获全部文件时跳过消费检查，文件失败仍阻止整体通过。异常、结果不符、零退出码但无结果、非 JSON 返回值和超时均失败。日志与结果通道分开；stdout/stderr 各限 1 MiB，报告各保留前 4096 字节，JSON 结果限 1 MiB。
+
+仅检查普通文件及 Core 字节时不依赖 Node；声明压缩副本或消费入口时需要 Node.js 20+，可通过 `--node PATH` 指定。缺少运行时属于 IO 错误。JSON/Markdown 输出不得覆盖清单或声明文件，不接受符号链接目标；后续 JSON 写入失败时恢复已有 Markdown 内容。
+
+消费入口是项目自己的代码，必须自行关闭 Worker 等句柄。子进程仅保留 PATH、系统路径和临时目录环境变量，业务参数通过 `args` 传入。临时目录与清除 `NODE_OPTIONS`/`NODE_PATH` 用于暴露源码目录里的相对依赖漏发；它不限制代码的绝对路径、网络或其他进程访问，也不限制进程内存。首版不验证浏览器环境、不安装 npm 依赖、不检查 tar/zip、npm 包或 OCI 镜像。
+
+## 单产物策略与处理
+
+准备并检查真实 MoonBit 产物：
 
 ```sh
 moonrun _build/wasm/release/build/wasm-tools.wasm -- release prepare examples/release.json \
@@ -113,15 +166,15 @@ moonhostabi lock previous/app.wasm --out previous/app.lock.json
 
 ## GitHub Action
 
-首版 Action 支持 **Linux runner**，需要 Bash、Node.js 20+ 和网络。它固定 MoonBit 工具链，从所引用提交构建 CLI；规则与处理逻辑均由 MoonBit 执行。应用构建完成后，本仓库可这样调用：
+首版 Action 支持 **Linux runner**，需要 Bash、Node.js 20+ 和网络。它固定 MoonBit 工具链，从所引用提交构建 CLI。发布目录和上述清单 `wasm-bundle.json` 准备完成后：
 
 ```yaml
-- name: Prepare WASM release
+- name: Check WASM release bundle
   id: wasm
   uses: ./
   with:
-    config: examples/release.json
-    mode: prepare
+    command: bundle
+    config: wasm-bundle.json
 
 - uses: actions/upload-artifact@v4
   if: always()
@@ -136,14 +189,17 @@ moonhostabi lock previous/app.wasm --out previous/app.lock.json
 
 | 输入 | 作用 |
 |---|---|
-| `config` | 必填，发布配置路径 |
-| `mode` | `check`（默认）或 `prepare` |
+| `config` | 必填，发布包清单或单产物策略配置路径 |
+| `command` | `release`（默认，兼容既有调用）或 `bundle` |
+| `mode` | `check`（默认）；仅 `release` 支持 `prepare` |
 | `out-dir` | prepare 的新目录；省略时在本次独立临时目录内生成 |
 | `install-moonhostabi` | `true` 时安装固定的 `0.6.0`；默认 `false` |
 | `moonhostabi` | 原生 CLI 名称或路径，默认 `moonhostabi` |
 | `wasm-opt` | 可选优化器路径 |
 
 配置含 `abi` 且未提前安装工具时，请设置 `install-moonhostabi: 'true'`。Action 将 Markdown 追加到 Job Summary，输出 `report-json`、`summary`、`status`；仅成功 prepare 输出 `prepared-dir`。规则违规使步骤失败；配置错误无法生成 JSON 时，该路径输出为空，诊断保留在 summary。每次调用使用新报告目录，不复用旧成功结果。
+
+`command: bundle` 使用运行 Action 的 Node 可执行文件执行压缩与消费检查，拒绝 `mode: prepare`、`out-dir` 和 `wasm-opt`。使用单产物处理时保留 `command: release`，设置 `mode: prepare` 和对应策略配置即可。
 
 Action 不自动改写基线、发布 release 或提交 PR 评论；下游根据检查结果决定后续发布步骤。
 
@@ -154,12 +210,23 @@ Action 不自动改写基线、发布 release 或提交 PR 评论；下游根据
 | WASM 解析、验证、WAT 转换 | `Milky2018/wasm_core` 等生态库 |
 | Core ABI 规范化、lock 和兼容性结论 | 可选 MoonHostABI native CLI |
 | 优化 pass | 工具链 `moon-wasm-opt` |
-| 发布配置、预算与增长规则、精确导入/custom 约束、批次聚合、处理后复检、发布与报告 | 本项目 MoonBit 实现 |
+| gzip/Brotli 解码、JavaScript/WASM 执行、Worker | Node 标准库与运行时 |
+| 发布清单/引用校验、文件捕获与 SHA-256、压缩副本字节比较、消费期望判定、失败聚合及报告 | 本项目 MoonBit 实现 |
+| 既有发布规则、精确导入/custom 约束、批次聚合、处理后复检与新目录输出 | 本项目 MoonBit 实现，辅助能力 |
 | Action 安装、启动与 GitHub 输出适配 | 本项目薄封装 |
 
-对照 `wasmoon@0.19.0` 及默认分支 `40379a3`，其已有验证、转换、WIT、运行测试和完善的自身 CI；该提交未提供 Action metadata 或 `workflow_call` 入口。项目差异集中在用户发布产物的配置化规则及处理流程，不能仅以“有 CI”“能批量运行”“输出 JSON”作为独立贡献。[固定版本命令](https://github.com/Milky2018/wasmoon/blob/40379a3b7bde338ebb1dbbbb7822a7e3a92daab8/modules/wasmoon/cmd/wasmoon-tools/main.mbt)、[工作流](https://github.com/Milky2018/wasmoon/blob/40379a3b7bde338ebb1dbbbb7822a7e3a92daab8/.github/workflows/check.yml)。
+2026-11-18 按下列固定版本核对公开文档与命令面，差异限定为当前实现范围：
 
-`release` 纯规则包不依赖 CLI、IO、解析器 AST 或 MoonHostABI，可由 MoonBit 程序构造 `Facts` 后调用 `evaluate`。该包在 wasm、wasm-gc、JS、native 均有测试；二进制适配和 CLI 当前仍为 wasm target。
+| 项目与证据 | 已有能力及复用边界 | 本项目新增检查对象 |
+|---|---|---|
+| [Wasmoon `2e98651`](https://github.com/Milky2018/wasmoon/blob/2e986517249e056026a84479b48af41a15f5ee88/modules/wasmoon/README.mbt.md) | 解析、验证、转换、WIT 和运行测试；复用其生态解析库。所查 Git 树有自身工作流，无 Action metadata | 声明的发布目录、文件关系和消费契约 |
+| [MoonHostABI `b2fcd60`](https://github.com/0717lee/moonhostabi/blob/b2fcd602b68b240b2fcd29a0759b7cd6cfb11c23/docs/consumer-example.md) | ABI lock/兼容性及生成适配器；已有真实 Node 适配器与隔离安装消费测试，`verify` 本身静态分析。本项目委托其 ABI 结论 | 接受构建后的目录与任意声明的 Node ESM 函数，核对压缩副本并运行 WASM/Worker；不重做 ABI 或适配器生成 |
+| [moonsize `9499de8`](https://github.com/BigSaltyMan/moonsize/blob/9499de8557a3bf529f857e4df01edd2342151632/README.md) | 体积、gzip 测量/预算、函数/包归因、引用图和 CI 报告；仓内也有工具链 setup Action 和 size-check 工作流 | 对磁盘上实际 `.gz`/`.br` 与原件逐字节比较，并检查整个声明文件集合的消费结果 |
+| [wasmslim `0.3.1`](https://mooncakes.io/docs/zhangbowen2006/wasmslim@0.3.1) | debug 段、体积预算、函数变化和可达性分析；以其公开包文档为证据 | 发布目录中的文件完整性与真实入口执行 |
+
+因此不把“有 Action”“能运行测试”“支持 gzip”“能输出 JSON”单独作为差异。验证用例围绕可复现的问题：源码里有但漏发的 Worker/WASM、仍为上一版的压缩副本、正确进程退出但没有正确消费结果。可先运行 MoonHostABI 和体积分析，再对最终目录运行本工具。
+
+`bundle.parse_manifest` 与 `release.evaluate` 是独立的 MoonBit API，不依赖 CLI、IO 或解析器 AST。两个包在 wasm、wasm-gc、JS、native 均有测试；文件捕获、外部进程及二进制适配在 wasm CLI 执行。
 
 ## 原有工具与边界
 
@@ -167,7 +234,7 @@ Action 不自动改写基线、发布 release 或提交 PR 评论；下游根据
 
 辅助命令继续保留：`validate`、`print`、`parse`、`dump`、`strip`、`metadata`、`size`、`opt`、`symbolize`、`component wit`。通用 WIT/WAC 操作使用 `moonx moonrockz/wasm-devkit`。
 
-首版发布路径限 Core WASM（含上游支持的 MoonBit wasm/wasm-gc），拒绝 Component 二进制；不做递归 Component 策略、运行时资源隔离、行为等价证明或宿主业务逻辑推断。退出码为 `0` 全部通过、`1` 产物/规则/ABI 检查失败、`2` 用法/配置/IO 错误；每个产物均报告，批次错误优先于普通检查失败。
+首版 WASM 验证和处理路径限 Core WASM（含上游支持的 MoonBit wasm/wasm-gc），`kind: wasm` 拒绝 Component 二进制；不做递归 Component 策略、运行时资源隔离、行为等价证明或宿主业务逻辑推断。退出码为 `0` 全部通过、`1` 文件/压缩/消费/规则/ABI 检查失败、`2` 用法/配置/IO 错误；IO 错误可能无法生成 JSON，Action 此时提供摘要诊断。
 
 ## 开发与验证
 
@@ -179,9 +246,12 @@ moon info
 moon build --target wasm
 ./tests/smoke.sh
 MOONHOSTABI=moonhostabi python3 tests/release-check.py
+python3 tests/bundle-check.py
 WSM_CLI_WASM="$PWD/_build/wasm/debug/build/wasm-tools.wasm" node tests/action-runner.mjs
 ```
 
 发布集成用例覆盖预算边界、重复段、规则负例、真实优化、基线不变、批次失败不发布、报告失败回滚及文件别名保护。设置 `MOONHOSTABI` 或将工具加入 PATH 时，运行真实兼容/破坏性变更与处理后 ABI 检查；未安装时明确跳过 ABI 集成部分，不把它记作已验证。
 
-CI 配置包含三平台构建/测试、Linux Action 安装与调用、真实 MoonHostABI 委托和拒绝过预算产物。远端执行结果以对应提交的 Actions run 为准。包与 CLI 采用 Apache-2.0 许可；架构与阶段验收记录见 [docs/adr](docs/adr/README.md)。
+发布包回归使用真实 zlib 流和 WASM/Worker，覆盖陈旧/损坏/尾随/超限压缩数据、漏发依赖、用例间污染、伪造日志、非 JSON 返回、同步/异步超时、大参数传输及结果上限。
+
+CI 固定 Node 20，包含三平台构建/消费测试、Linux 完整 Action 安装与调用、真实 MoonHostABI 委托，以及有意失败的预算和过期压缩副本。远端执行结果以对应提交的 Actions run 为准。包与 CLI 采用 Apache-2.0 许可；架构与阶段验收记录见 [docs/adr](docs/adr/README.md)。

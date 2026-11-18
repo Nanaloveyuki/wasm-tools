@@ -18,6 +18,10 @@ Each encoded file names a declared identity source. Decode its captured bytes an
 
 Consumers import a declared `.mjs` entry, call a named export with JSON arguments and compare the JSON result against the manifest. Each consumer runs in its own fresh directory containing only captured declared files. Its child process has a deadline, limited output and no inherited Node preload/module-path configuration. This exposes undeclared dependencies and exercises actual WASM and Worker loading. Project code still has ordinary process filesystem and network access: this is process isolation, not an operating-system sandbox. Version 1 makes no browser-compatibility claim.
 
+`requires` validates explicit references and is not an exhaustive dependency list: all declared files are copied for every consumer. Missing any declared file skips consumers while the capture findings fail the bundle. Arguments travel in a JSON request file rather than OS arguments. Results use a separate file, so logging JSON or exiting zero without a result cannot satisfy the check. The persisted JSON result is capped at 1 MiB; child stdout/stderr are capped at 1 MiB and each retained log is the first 4096 bytes. These are output limits, not a bound on consumer allocations or serialization peak memory.
+
+The Linux Action accepts `command: bundle` with `mode: check`; its existing `command: release` default preserves check/prepare callers. It passes its own Node executable to the CLI and continues to publish per-invocation JSON/Markdown paths and status. It rejects preparation flags for bundles. CI pins Node 20 to verify the minimum supported runtime.
+
 The publication-package focus is inspired by [publint](https://publint.dev/docs/); testing actual runtime behavior is informed by [wasm-pack test](https://github.com/wasm-bindgen/wasm-pack/blob/master/docs/src/commands/test.md). These are design references, not copied implementations or claims to reproduce all of their checks.
 
 ## Verification gates
@@ -28,3 +32,7 @@ The publication-package focus is inspired by [publint](https://publint.dev/docs/
 4. CLI/Action integration, full regression and documentation: use the real CLI, exercise both passing and deliberately failing jobs, update the proposal to match shipped behavior.
 
 Proceed to each implementation gate only after the previous gate passes. Existing release checks remain available for artifact policies, processing and delegated ABI verification.
+
+## Reference review, 2026-11-18
+
+The current comparison is recorded in the root [README](../../README.md#独立贡献与生态分工), with fixed Wasmoon `2e98651`, moonsize `9499de8`, MoonHostABI `b2fcd60` and wasmslim `0.3.1` references. MoonHostABI already has real generated-adapter and isolated-install consumer tests; runtime testing itself is not a unique contribution. moonsize has whole-file gzip measurement and CI workflows plus a toolchain setup Action. The contribution here is checking relationships between the actual declared publication files and running configured ESM consumers from captured files, while delegating ABI and detailed size analysis.

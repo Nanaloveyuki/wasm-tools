@@ -5,6 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { brotliCompressSync, gzipSync } from 'node:zlib';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const runAction = path.join(root, 'scripts/run-action.mjs');
@@ -68,7 +69,7 @@ async function main() {
     await writeFile(stepSummary, '');
 
     let serial = 0;
-    async function invoke({ config, mode = 'check', outDir = '', wasmOpt = '' }) {
+    async function invoke({ config, command = 'release', mode = 'check', outDir = '', wasmOpt = '' }) {
       serial += 1;
       const outputFile = path.join(tempRoot, `outputs-${serial}.txt`);
       await writeFile(outputFile, '');
@@ -80,6 +81,7 @@ async function main() {
         GITHUB_OUTPUT: outputFile,
         GITHUB_STEP_SUMMARY: stepSummary,
         WSM_CLI_WASM: cliWasm,
+        INPUT_COMMAND: command,
         INPUT_CONFIG: config,
         INPUT_MODE: mode,
         INPUT_OUT_DIR: outDir,
@@ -164,6 +166,124 @@ async function main() {
     assert.equal(badModeOutputs.status, 'error');
     assert.equal(badModeOutputs['report-json'], '');
     assert.match(badMode.result.stderr, /mode must be check or prepare/);
+
+    const bundleDir = path.join(workspace, 'bundle');
+    await mkdir(bundleDir);
+    const bundleModule = path.join(bundleDir, 'module.wasm');
+    await writeFile(bundleModule, original);
+    const gzipBytes = gzipSync(original);
+    const brotliBytes = brotliCompressSync(original);
+    const compressedGzip = path.join(bundleDir, 'module.wasm.gz');
+    const compressedBrotli = path.join(bundleDir, 'module.wasm.br');
+    await writeFile(compressedGzip, gzipBytes);
+    await writeFile(compressedBrotli, brotliBytes);
+    const consumerEntry = path.join(bundleDir, 'consumer.mjs');
+    await writeFile(
+      consumerEntry,
+      "import { readFile } from 'node:fs/promises';\n" +
+        'export async function run() {\n' +
+        "  const bytes = await readFile(new URL('./module.wasm', import.meta.url));\n" +
+        '  const { instance } = await WebAssembly.instantiate(bytes);\n' +
+        '  return { value: instance.exports.run() };\n' +
+        '}\n',
+    );
+    const bundleConfig = path.join(bundleDir, 'bundle.json');
+    const bundleValue = {
+      format_version: 1,
+      files: [
+        { path: 'module.wasm', kind: 'wasm' },
+        { path: 'module.wasm.gz', encoding: 'gzip', source: 'module.wasm' },
+        { path: 'module.wasm.br', encoding: 'br', source: 'module.wasm' },
+        { path: 'consumer.mjs' },
+      ],
+      consumers: [
+        {
+          name: 'action-consumer',
+          entry: 'consumer.mjs',
+          export: 'run',
+          args: [],
+          expected: { value: 1 },
+        },
+      ],
+    };
+    await writeFile(bundleConfig, JSON.stringify(bundleValue));
+    const bundlePass = await invoke({ config: bundleConfig, command: 'bundle' });
+    assert.equal(bundlePass.result.status, 0, `passing bundle action failed: ${bundlePass.result.stderr}`);
+    const bundleOutputs = decodeOutputs(await readFile(bundlePass.outputs, 'utf8'));
+    const bundleReport = JSON.parse(await readFile(bundleOutputs['report-json'], 'utf8'));
+    assert.equal(bundleReport.mode, 'bundle-check');
+    assert.equal(bundleReport.format_version, 1);
+    assert.equal(bundleReport.status, 'passed');
+    assert.equal(bundleOutputs.status, 'passed');
+    assert.equal(bundleOutputs['prepared-dir'], '');
+    const bundleRows = Object.fromEntries(bundleReport.files.map((row) => [row.path, row]));
+    const moduleHash = createHash('sha256').update(original).digest('hex');
+    assert.equal(bundleRows['module.wasm'].sha256, moduleHash);
+    assert.equal(bundleRows['module.wasm.gz'].sha256, createHash('sha256').update(gzipBytes).digest('hex'));
+    assert.equal(bundleRows['module.wasm.br'].sha256, createHash('sha256').update(brotliBytes).digest('hex'));
+    assert.ok(bundleReport.compressions.every((entry) => entry.status === 'passed'));
+    assert.equal(bundleReport.consumers[0].status, 'passed');
+    const bundleSummary = await readFile(bundleOutputs.summary, 'utf8');
+    assert.match(bundleSummary, /module\.wasm/);
+    assert.match(bundleSummary, /action-consumer/);
+
+    const staleModulePath = path.join(workspace, 'stale-module.wasm');
+    const staleWatPath = path.join(workspace, 'stale-module.wat');
+    await writeFile(staleWatPath, '(module (func (export "run") (result i32) i32.const 2))\n');
+    const staleParse = run([moonrun, cliWasm, '--', 'parse', staleWatPath, '-o', staleModulePath]);
+    assert.equal(staleParse.status, 0, `failed to create stale WAT fixture: ${staleParse.stderr}`);
+    await writeFile(compressedGzip, gzipSync(await readFile(staleModulePath)));
+    const staleConfig = path.join(bundleDir, 'stale.json');
+    await writeFile(
+      staleConfig,
+      JSON.stringify({
+        format_version: 1,
+        files: [
+          { path: 'module.wasm', kind: 'wasm' },
+          { path: 'module.wasm.gz', encoding: 'gzip', source: 'module.wasm' },
+        ],
+      }),
+    );
+    const stale = await invoke({ config: staleConfig, command: 'bundle' });
+    assert.notEqual(stale.result.status, 0, 'stale compressed bundle did not fail the action');
+    const staleOutputs = decodeOutputs(await readFile(stale.outputs, 'utf8'));
+    const staleReport = JSON.parse(await readFile(staleOutputs['report-json'], 'utf8'));
+    assert.equal(staleReport.status, 'failed');
+    assert.equal(staleOutputs.status, 'failed');
+    assert.ok(staleReport.findings.some((finding) => finding.code === 'compression_mismatch'));
+
+    const invalidBundleConfig = path.join(bundleDir, 'invalid.json');
+    await writeFile(invalidBundleConfig, '{not-json');
+    const invalidBundle = await invoke({ config: invalidBundleConfig, command: 'bundle' });
+    assert.notEqual(invalidBundle.result.status, 0, 'invalid bundle config did not fail');
+    const invalidBundleOutputs = decodeOutputs(await readFile(invalidBundle.outputs, 'utf8'));
+    assert.equal(invalidBundleOutputs.status, 'error');
+    assert.equal(invalidBundleOutputs['report-json'], '', 'invalid bundle config exposed a nonexistent report path');
+
+    const missingBundle = await invoke({ config: '', command: 'bundle' });
+    assert.notEqual(missingBundle.result.status, 0, 'missing bundle manifest did not fail');
+    const missingBundleOutputs = decodeOutputs(await readFile(missingBundle.outputs, 'utf8'));
+    assert.equal(missingBundleOutputs.status, 'error');
+    assert.equal(missingBundleOutputs['report-json'], '');
+
+    for (const invalidBundleInput of [
+      { mode: 'prepare' },
+      { outDir: 'bundle-artifacts' },
+      { wasmOpt: 'wasm-opt' },
+    ]) {
+      const rejected = await invoke({ config: bundleConfig, command: 'bundle', ...invalidBundleInput });
+      assert.notEqual(rejected.result.status, 0, 'invalid bundle action input did not fail');
+      const rejectedOutputs = decodeOutputs(await readFile(rejected.outputs, 'utf8'));
+      assert.equal(rejectedOutputs.status, 'error');
+      assert.equal(rejectedOutputs['report-json'], '', 'invalid bundle input exposed a report path');
+      assert.equal(rejectedOutputs['prepared-dir'], '');
+    }
+
+    const unknownCommand = await invoke({ config: bundleConfig, command: 'publish' });
+    assert.notEqual(unknownCommand.result.status, 0, 'unknown action command did not fail');
+    const unknownOutputs = decodeOutputs(await readFile(unknownCommand.outputs, 'utf8'));
+    assert.equal(unknownOutputs.status, 'error');
+    assert.equal(unknownOutputs['report-json'], '');
 
     console.log('GitHub Action runner integration checks passed');
   } finally {

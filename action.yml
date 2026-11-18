@@ -1,10 +1,14 @@
 name: MoonBit WASM release gate
-description: Build wasm-tools and check or prepare Core Wasm release artifacts on Linux.
+description: Check WASM release bundles or prepare Core Wasm artifacts on Linux.
 
 inputs:
   config:
-    description: Path to the release JSON config, relative to the workspace or absolute.
+    description: Artifact policy config or bundle manifest, relative to the workspace or absolute.
     required: true
+  command:
+    description: CLI command to run (release or bundle). Bundle supports check mode only.
+    required: false
+    default: release
   mode:
     description: Release operation to run (check or prepare).
     required: false
@@ -49,6 +53,7 @@ runs:
       env:
         RUNNER_OS: ${{ runner.os }}
         INPUT_MODE: ${{ inputs.mode }}
+        INPUT_COMMAND: ${{ inputs.command }}
         INPUT_MOONHOSTABI: ${{ inputs.moonhostabi }}
         INPUT_INSTALL_MOONHOSTABI: ${{ inputs.install-moonhostabi }}
     - name: Run release gate
@@ -57,6 +62,7 @@ runs:
       run: node "$GITHUB_ACTION_PATH/scripts/run-action.mjs"
       env:
         INPUT_CONFIG: ${{ inputs.config }}
+        INPUT_COMMAND: ${{ inputs.command }}
         INPUT_MODE: ${{ inputs.mode }}
         INPUT_OUT_DIR: ${{ inputs.out-dir }}
         INPUT_MOONHOSTABI: ${{ inputs.moonhostabi }}
