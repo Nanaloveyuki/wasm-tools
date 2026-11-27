@@ -232,7 +232,7 @@ async fn bundle_read_file(
   if size > remaining.to_int64() {
     raise BundleReadError("capture_limit", "bundle capture exceeds 64 MiB")
   }
-  let bytes = @fs.read_file(path).binary() catch {
+  let bytes = @fs.read_binary(path) catch {
     e => raise BundleReadError("file_read", e.to_string())
   }
   if bytes.length() > remaining {

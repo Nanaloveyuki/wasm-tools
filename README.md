@@ -10,7 +10,7 @@ Core ABI 检查由可选的 **MoonHostABI native CLI** 执行。新发布流程�
 
 ## 版本与运行
 
-`0.6.0` 是本次源码开发版本，尚未发布到 Mooncakes；已发布的 `0.5.1` 不包含 `bundle` 或 `release` 命令。当前请从源码运行，Action 需引用包含这些命令的仓库提交。
+`0.6.0` 在 Mooncakes 提供 `bundle` 和 `release` 命令。GitHub Action 可引用 `Nanaloveyuki/wasm-tools@v0.6.0`。
 
 编译器固定在 `.moonbit-toolchain`，本地与 Action 使用同一归档：
 
@@ -152,7 +152,7 @@ JSON 报告列出逐项实际值与阈值、原件/最终文件/基线的大小�
 按固定版本安装原生 CLI，并从已发布产物创建上游 lock：
 
 ```sh
-moon install 0717lee/moonhostabi/cmd/moonhostabi@0.6.0
+moon install 0717lee/moonhostabi/cmd/moonhostabi@0.6.1
 moonhostabi lock previous/app.wasm --out previous/app.lock.json
 ```
 
@@ -164,7 +164,7 @@ moonhostabi lock previous/app.wasm --out previous/app.lock.json
 
 `baseline` 是体积比较用的 WASM；`abi.baseline` 是 MoonHostABI lock JSON，两者独立。配置 ABI 检查后，`release` 调用 `moonhostabi verify ... --format json`，保留上游原始报告并核对已知 schema、退出码、结果和候选 SHA-256。工具不可用、未知或不兼容结果都阻止通过，不回退到自有比较器。
 
-可用 `--moonhostabi PATH` 指定原生 CLI；调用方选择其他安装版本时，桥接层按已知报告协议校验，不检查版本字符串。本仓集成测试和 Action 的可选安装器固定使用 `0.6.0`。ABI 能力范围和生成器可表示性以 [MoonHostABI](https://github.com/0717lee/moonhostabi) 为准。
+可用 `--moonhostabi PATH` 指定原生 CLI；调用方选择其他安装版本时，桥接层按已知报告协议校验，不检查版本字符串。本仓集成测试和 Action 的可选安装器固定使用 `0.6.1`。ABI 能力范围和生成器可表示性以 [MoonHostABI](https://github.com/0717lee/moonhostabi) 为准。
 
 ## GitHub Action
 
@@ -187,7 +187,7 @@ moonhostabi lock previous/app.wasm --out previous/app.lock.json
       ${{ steps.wasm.outputs.summary }}
 ```
 
-其他仓库将 `uses: ./` 换成 `Nanaloveyuki/wasm-tools@<包含此 Action 的提交 SHA>`，并提供自己的配置。完整的本仓库调用与失败验证见 [.github/workflows/ci.yml](.github/workflows/ci.yml)。
+其他仓库将 `uses: ./` 换成 `Nanaloveyuki/wasm-tools@v0.6.0`，并提供自己的配置。完整的本仓库调用与失败验证见 [.github/workflows/ci.yml](.github/workflows/ci.yml)。
 
 | 输入 | 作用 |
 |---|---|

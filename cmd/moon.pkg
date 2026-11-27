@@ -8,9 +8,9 @@ import {
   "moonbitlang/core/string" @str,
   "moonbitlang/core/json",
   "moonbitlang/core/env",
-  "moonbitlang/async",
-  "moonbitlang/async/fs",
-  "moonbitlang/async/process",
+  "moonbitlang/core/async",
+  "moonbitlang/core/async/fs",
+  "moonbitlang/core/async/process",
   "moonbitlang/x/path",
   "moonbitlang/x/crypto",
 }
@@ -18,8 +18,5 @@ import {
 supported_targets = "wasm"
 
 options(
-  "allow-experimental-packages": [
-    "moonbitlang/core/async",
-    "moonbitlang/core/async/external_loop_integration",
-  ],
+  "allow-experimental-packages": [ "moonbitlang/core/async" ],
 )

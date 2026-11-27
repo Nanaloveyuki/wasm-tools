@@ -73,7 +73,7 @@ fi
 if [[ "${INPUT_INSTALL_MOONHOSTABI:-false}" == true ]]; then
   abi_bin="$runner_temp/wasm-tools-action-moonhostabi"
   mkdir -p "$abi_bin"
-  moon -C "$action_root" install --bin "$abi_bin" 0717lee/moonhostabi/cmd/moonhostabi@0.6.0
+  moon -C "$action_root" install --bin "$abi_bin" 0717lee/moonhostabi/cmd/moonhostabi@0.6.1
   abi_executable="$abi_bin/moonhostabi"
   if [[ ! -x "$abi_executable" ]]; then
     printf 'Pinned MoonHostABI installation did not produce %s\n' "$abi_executable" >&2

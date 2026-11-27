@@ -49,10 +49,10 @@ pub async fn find_optimizer(explicit : String?) -> String raise @cli.CliError {
 
 ///|
 async fn probe_optimizer(path : String) -> Bool {
-  let result = @process.collect_output(path, ["--version"]) catch {
+  let result = @process.run(path, ["--version"], stdout=Discard, stderr=Discard) catch {
     _ => return false
   }
-  result.0 == 0
+  result.exit_code == 0
 }
 
 ///|
@@ -74,9 +74,9 @@ pub async fn run_optimizer(
   defer {
     let _ = @fs.remove(output) catch { _ => () }
     let _ = @fs.remove(input) catch { _ => () }
-    let _ = @fs.rmdir(dir) catch { _ => () }
+    let _ = @fs.remove(dir) catch { _ => () }
   }
-  @fs.write_file(input, data) catch {
+  @fs.write_binary(input, data) catch {
     e =>
       raise @cli.CliError::Io(
         "cannot write the temporary input: " + e.to_string(),
@@ -89,19 +89,24 @@ pub async fn run_optimizer(
   args.push(input)
   args.push("-o")
   args.push(output)
-  let (code, _, stderr) = @process.collect_output(optimizer.path, args) catch {
+  let process = @process.run(
+    optimizer.path,
+    args,
+    stdout=Discard,
+    stderr=Collect,
+  ) catch {
     e =>
       raise @cli.CliError::Unsupported(
         "cannot run " + optimizer.path + ": " + e.to_string(),
       )
   }
-  if code != 0 {
-    let message = stderr.text() catch { _ => "" }
+  if process.exit_code != 0 {
+    let message = process.stderr_text() catch { _ => "" }
     raise @cli.CliError::Invalid(
       "optimizer failed: " + message.trim().to_owned(),
     )
   }
-  let result = @fs.read_file(output).binary() catch {
+  let result = @fs.read_binary(output) catch {
     e =>
       raise @cli.CliError::Io("optimizer produced no output: " + e.to_string())
   }

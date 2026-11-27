@@ -22,7 +22,7 @@ inputs:
     required: false
     default: moonhostabi
   install-moonhostabi:
-    description: Install pinned 0717lee/moonhostabi/cmd/moonhostabi@0.6.0.
+    description: Install pinned 0717lee/moonhostabi/cmd/moonhostabi@0.6.1.
     required: false
     default: 'false'
   wasm-opt:

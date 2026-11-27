@@ -21,7 +21,8 @@
 | `Milky2018/wasm_component` | 0.19.0 | component 解析/验证、WIT 解析/编码/解码 | 提供 `decode_wit_package_from_component` 与 `format_package`，正是 `component wit` 需要的 |
 | `moonrockz/wit` | 0.4.0 | **仅** `decompiler`：二进制转 WAT（core + component） | 反编译输出带 offset 的多文档 WAT；index 中 `wasm-devkit` 依赖它 |
 | ~~`mizchi/mwac`~~ | 0.2.2 | 暂不采用 | 本地可编到 wasm 并完成组合，但其依赖 `mizchi/wit` 在 Mooncakes 构建服务的工具链上编译失败（`Array::to_json` 不存在）；发布后无预编译资产，因此回退 |
-| `moonbitlang/async` | 0.22.9 | 文件、stdio、进程 | `fs`/`stdio`/`process` 支持 wasm；`opt` 用 `process` 调用 `moon-wasm-opt` |
+| `moonbitlang/core/async` | 随工具链提供 | 文件、stdio、进程 | `fs`/`stdio`/`process` 支持 wasm；`opt` 用 `process` 调用 `moon-wasm-opt` |
+| `moonbitlang/x` | 0.5.9 | 路径处理与 SHA-256 | 保留路径解析和发布产物摘要 |
 
 依赖版本全部固定，升级必须重新跑 ADR 末尾的验证清单。
 
@@ -94,8 +95,8 @@ moon test
 
 ## Dependency Upgrade Verification (2026-11-11)
 
-直接依赖升级到上表所列版本。新版本要求 MoonBit 0.10.20；使用 `moon`
-0.1.20261104（moonc 0.10.20）完成验证。当前 `moon tree` 显示
+该次验证使用 `moon` 0.1.20261104（moonc 0.10.20）和
+`moonbitlang/async@0.22.9`。当时的 `moon tree` 显示
 `moonrockz/wit@0.4.0` 与本项目共用 `wasm_core` / `wasm_component@0.19.0`；本次
 `moon check`、测试、release 构建及 CLI smoke 均通过。
 

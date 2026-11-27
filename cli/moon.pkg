@@ -1,13 +1,10 @@
 import {
-  "moonbitlang/async/fs",
-  "moonbitlang/async/stdio",
+  "moonbitlang/core/async/fs",
+  "moonbitlang/core/async/stdio",
 }
 
 supported_targets = "wasm"
 
 options(
-  "allow-experimental-packages": [
-    "moonbitlang/core/async",
-    "moonbitlang/core/async/external_loop_integration",
-  ],
+  "allow-experimental-packages": [ "moonbitlang/core/async" ],
 )

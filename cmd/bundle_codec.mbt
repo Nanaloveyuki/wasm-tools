@@ -23,9 +23,9 @@ async fn bundle_decode(
   let input_path = dir + "/encoded.bin"
   defer {
     let _ = @fs.remove(input_path) catch { _ => () }
-    let _ = @fs.rmdir(dir) catch { _ => () }
+    let _ = @fs.remove(dir) catch { _ => () }
   }
-  @fs.write_file(input_path, encoded) catch {
+  @fs.write_binary(input_path, encoded) catch {
     error =>
       raise @cli.CliError::Io(
         "cannot write temporary codec input: " + error.to_string(),
@@ -39,11 +39,13 @@ async fn bundle_decode(
     input_path,
     (max_bytes + 1).to_string(),
   ]
-  let (exit_code, stdout, stderr) = @process.collect_output(
+  let result = @process.run(
     node,
     args,
     extra_env=bundle_node_environment(),
     inherit_env=false,
+    stdout=Collect,
+    stderr=Collect,
     cwd=dir,
   ) catch {
     error =>
@@ -51,18 +53,18 @@ async fn bundle_decode(
         "cannot run Node.js codec helper: " + error.to_string(),
       )
   }
-  if exit_code == 2 {
+  if result.exit_code == 2 {
     raise @cli.CliError::Io(
       "Node.js 20 or newer is required for gzip and Brotli decoding",
     )
   }
-  if exit_code != 0 {
-    let detail = stderr.text() catch { _ => "" }
+  if result.exit_code != 0 {
+    let detail = result.stderr_text() catch { _ => "" }
     let detail = detail.trim().to_owned()
     let suffix = if detail.is_empty() { "" } else { ": " + detail }
     raise @cli.CliError::Invalid(encoding_name + " decoding failed" + suffix)
   }
-  stdout.binary()
+  result.stdout_binary()
 }
 
 ///|

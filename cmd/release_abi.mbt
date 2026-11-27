@@ -24,9 +24,9 @@ async fn release_verify_abi(
   let candidate = dir + "/candidate.wasm"
   defer {
     let _ = @fs.remove(candidate) catch { _ => () }
-    let _ = @fs.rmdir(dir) catch { _ => () }
+    let _ = @fs.remove(dir) catch { _ => () }
   }
-  @fs.write_file(candidate, data) catch {
+  @fs.write_binary(candidate, data) catch {
     e =>
       return {
         passed: false,
@@ -35,9 +35,12 @@ async fn release_verify_abi(
         error: Some("cannot write temporary candidate: " + e.to_string()),
       }
   }
-  let (exit_code, stdout, stderr) = @process.collect_output(executable, [
-    "verify", candidate, "--against", baseline, "--format", "json",
-  ]) catch {
+  let result = @process.run(
+    executable,
+    ["verify", candidate, "--against", baseline, "--format", "json"],
+    stdout=Collect,
+    stderr=Collect,
+  ) catch {
     e =>
       return {
         passed: false,
@@ -46,7 +49,8 @@ async fn release_verify_abi(
         error: Some("cannot run " + executable + ": " + e.to_string()),
       }
   }
-  let output = stdout.text() catch {
+  let exit_code = result.exit_code
+  let output = result.stdout_text() catch {
     _ =>
       return {
         passed: false,
@@ -55,7 +59,7 @@ async fn release_verify_abi(
         error: Some("moonhostabi returned non-UTF-8 JSON output"),
       }
   }
-  let stderr_text = stderr.text() catch { _ => "" }
+  let stderr_text = result.stderr_text() catch { _ => "" }
   let report = @json.parse(output, reject_duplicate_keys=true) catch {
     _ =>
       return {

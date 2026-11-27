@@ -135,7 +135,7 @@ pub async fn cmd_release(args : Array[String]) -> Int32 raise @cli.CliError {
   errdefer {
     let _ = @async.protect_from_cancel(() => {
       if published is Some(path) {
-        let _ = @fs.rmdir(path, recursive=true) catch { _ => () }
+        let _ = @fs.remove(path, recursive=true) catch { _ => () }
       }
       if summary_written && summary is Some(path) {
         match previous_summary {
@@ -212,7 +212,7 @@ async fn release_publish(
     e => raise @cli.CliError::Io(e.to_string())
   }
   defer {
-    let _ = @fs.rmdir(seed) catch { _ => () }
+    let _ = @fs.remove(seed) catch { _ => () }
   }
   let parent = @path.Path(output).dirname().to_string()
   let stage = release_path(parent, "." + @path.Path(seed).basename().to_owned())
@@ -220,10 +220,10 @@ async fn release_publish(
     e => raise @cli.CliError::Io("cannot stage release: " + e.to_string())
   }
   defer {
-    let _ = @fs.rmdir(stage, recursive=true) catch { _ => () }
+    let _ = @fs.remove(stage, recursive=true) catch { _ => () }
   }
   for (name, bytes) in artifacts {
-    @fs.write_file(release_path(stage, name), bytes, create_mode=CreateNew) catch {
+    @fs.write_binary(release_path(stage, name), bytes, create_mode=CreateNew) catch {
       e => raise @cli.CliError::Io("cannot stage release: " + e.to_string())
     }
   }
@@ -273,17 +273,17 @@ async fn release_write_bytes(
     e => raise @cli.CliError::Io(e.to_string())
   }
   defer {
-    let _ = @fs.rmdir(seed) catch { _ => () }
+    let _ = @fs.remove(seed) catch { _ => () }
   }
   let stage = release_path(parent, "." + @path.Path(seed).basename().to_owned())
   @fs.mkdir(stage) catch {
     e => raise @cli.CliError::Io(e.to_string())
   }
   defer {
-    let _ = @fs.rmdir(stage, recursive=true) catch { _ => () }
+    let _ = @fs.remove(stage, recursive=true) catch { _ => () }
   }
   let staged_file = release_path(stage, "report")
-  @fs.write_file(staged_file, data) catch {
+  @fs.write_binary(staged_file, data) catch {
     e => raise @cli.CliError::Io(e.to_string())
   }
   @fs.rename(staged_file, target, replace=true) catch {

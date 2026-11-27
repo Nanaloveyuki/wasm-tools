@@ -61,7 +61,7 @@ async fn bundle_check_one_consumer(
   let config_path = release_path(directory, "consumer-config.json")
   let result_path = release_path(directory, "consumer-result.json")
   defer {
-    let _ = @fs.rmdir(directory, recursive=true) catch { _ => () }
+    let _ = @fs.remove(directory, recursive=true) catch { _ => () }
   }
   @fs.mkdir(snapshot) catch {
     error =>
@@ -73,26 +73,26 @@ async fn bundle_check_one_consumer(
     let bytes = data.get(path).unwrap_or(b"")
     let destination = release_path(snapshot, path)
     let parent = @path.Path(destination).dirname().to_string()
-    @fs.mkdir(parent, recursive=true, allow_exist=true) catch {
+    @fs.mkdir(parent, recursive=true, allow_existing=true) catch {
       error =>
         raise @cli.CliError::Io(
           "cannot create consumer snapshot path: " + error.to_string(),
         )
     }
-    @fs.write_file(destination, bytes) catch {
+    @fs.write_binary(destination, bytes) catch {
       error =>
         raise @cli.CliError::Io(
           "cannot write consumer snapshot file: " + error.to_string(),
         )
     }
   }
-  @fs.write_file(launcher, @utf8.encode(bundle_consumer_launcher_script())) catch {
+  @fs.write_binary(launcher, @utf8.encode(bundle_consumer_launcher_script())) catch {
     error =>
       raise @cli.CliError::Io(
         "cannot write consumer launcher: " + error.to_string(),
       )
   }
-  @fs.write_file(runner, @utf8.encode(bundle_consumer_runner_script())) catch {
+  @fs.write_binary(runner, @utf8.encode(bundle_consumer_runner_script())) catch {
     error =>
       raise @cli.CliError::Io(
         "cannot write consumer runner: " + error.to_string(),
@@ -106,18 +106,20 @@ async fn bundle_check_one_consumer(
     "snapshot_root": Json::string(snapshot),
     "timeout_ms": Json::number(consumer.timeout_ms.to_double()),
   })
-  @fs.write_file(config_path, @utf8.encode(config.stringify())) catch {
+  @fs.write_binary(config_path, @utf8.encode(config.stringify())) catch {
     error =>
       raise @cli.CliError::Io(
         "cannot write consumer configuration: " + error.to_string(),
       )
   }
   let args = [launcher, runner, config_path]
-  let (exit_code, stdout, stderr) = @process.collect_output(
+  let result = @process.run(
     node,
     args,
     extra_env=bundle_node_environment(),
     inherit_env=false,
+    stdout=Collect,
+    stderr=Collect,
     cwd=snapshot,
   ) catch {
     error =>
@@ -125,18 +127,18 @@ async fn bundle_check_one_consumer(
         "cannot run Node.js consumer harness: " + error.to_string(),
       )
   }
-  if exit_code == 2 {
+  if result.exit_code == 2 {
     raise @cli.CliError::Io(
       "Node.js 20 or newer is required for consumer checks",
     )
   }
-  if exit_code != 0 {
-    let detail = stderr.text() catch { _ => "" }
+  if result.exit_code != 0 {
+    let detail = result.stderr_text() catch { _ => "" }
     raise @cli.CliError::Io(
       "Node.js consumer harness failed" + bundle_consumer_error_suffix(detail),
     )
   }
-  let output = stdout.text() catch {
+  let output = result.stdout_text() catch {
     _ =>
       raise @cli.CliError::Io(
         "Node.js consumer harness returned non-UTF-8 output",
