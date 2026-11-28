@@ -56,6 +56,8 @@ async function main() {
   const mode = (process.env.INPUT_MODE || 'check').trim();
   const command = (process.env.INPUT_COMMAND || 'release').trim();
   const outInput = (process.env.INPUT_OUT_DIR || '').trim();
+  const strictFilesInput = (process.env.INPUT_STRICT_FILES || 'false').trim();
+  const npmArchiveInput = process.env.INPUT_NPM_ARCHIVE || '';
   const abiInput = process.env.INPUT_MOONHOSTABI || 'moonhostabi';
   const wasmOptInput = (process.env.INPUT_WASM_OPT || '').trim();
   const cliWasm = process.env.WSM_CLI_WASM || path.join(actionRoot, '_build/wasm/release/build/wasm-tools.wasm');
@@ -73,6 +75,10 @@ async function main() {
     if (command === 'bundle' && mode !== 'check') throw new Error('bundle supports check mode only');
     if (command === 'bundle' && (outInput || wasmOptInput)) throw new Error('out-dir and wasm-opt require release prepare');
     if (mode === 'check' && outInput) throw new Error('out-dir is only valid in prepare mode');
+    if (!['true', 'false'].includes(strictFilesInput)) throw new Error('strict-files must be true or false');
+    if (command !== 'bundle' && (strictFilesInput === 'true' || npmArchiveInput)) {
+      throw new Error('strict-files and npm-archive require bundle check');
+    }
 
     const configPath = path.resolve(workspace, configInput);
     const args = [cliWasm, '--', command, mode, configPath, '-o', reportPath, '--summary', summaryPath];
@@ -80,8 +86,11 @@ async function main() {
       preparedDir = outInput ? path.resolve(workspace, outInput) : path.join(invocationDir, 'artifacts');
       args.push('--out-dir', preparedDir);
     }
-    if (command === 'bundle') args.push('--node', process.execPath);
-    else {
+    if (command === 'bundle') {
+      args.push('--node', process.execPath);
+      if (strictFilesInput === 'true') args.push('--strict-files');
+      if (npmArchiveInput) args.push('--npm-archive', path.resolve(workspace, npmArchiveInput));
+    } else {
       if (abiInput) args.push('--moonhostabi', abiInput);
       if (wasmOptInput) args.push('--wasm-opt', wasmOptInput);
     }

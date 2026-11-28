@@ -2,12 +2,13 @@
 fn bundle_report_json(
   manifest : String,
   root : String,
+  archive : String?,
   files : Array[@bundle.FileObservation],
   findings : Array[@bundle.Finding],
   compressions : Array[Json],
   consumers : Array[Json],
 ) -> Json {
-  Json::object({
+  let fields = {
     "format_version": Json::number(1.0),
     "mode": Json::string("bundle-check"),
     "manifest": Json::string(manifest),
@@ -44,7 +45,11 @@ fn bundle_report_json(
     ),
     "compressions": Json::array(compressions),
     "consumers": Json::array(consumers),
-  })
+  }
+  if archive is Some(path) {
+    fields["archive"] = Json::string(path)
+  }
+  Json::object(fields)
 }
 
 ///|
@@ -56,6 +61,9 @@ fn bundle_markdown(report : Json) -> String {
     markdown_cell(json_object_string(Some(report), "status").unwrap_or("error")) +
     "\n\n",
   )
+  if json_object_string(Some(report), "archive") is Some(path) {
+    out.write_string("Archive: " + markdown_cell(path) + "\n\n")
+  }
   out.write_string(
     "| File | Bytes | SHA-256 | Error |\n| --- | ---: | --- | --- |\n",
   )

@@ -17,6 +17,14 @@ inputs:
     description: Prepared artifact directory. Defaults to a fresh directory in the runner temp area for prepare mode.
     required: false
     default: ''
+  strict-files:
+    description: Reject files not declared in the bundle manifest (bundle check only).
+    required: false
+    default: 'false'
+  npm-archive:
+    description: Path to an npm pack tarball to check in place of the bundle directory.
+    required: false
+    default: ''
   moonhostabi:
     description: MoonHostABI executable or path. Defaults to moonhostabi on PATH.
     required: false
@@ -65,5 +73,7 @@ runs:
         INPUT_COMMAND: ${{ inputs.command }}
         INPUT_MODE: ${{ inputs.mode }}
         INPUT_OUT_DIR: ${{ inputs.out-dir }}
+        INPUT_STRICT_FILES: ${{ inputs.strict-files }}
+        INPUT_NPM_ARCHIVE: ${{ inputs.npm-archive }}
         INPUT_MOONHOSTABI: ${{ inputs.moonhostabi }}
         INPUT_WASM_OPT: ${{ inputs.wasm-opt }}

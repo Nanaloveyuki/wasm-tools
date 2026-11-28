@@ -14,6 +14,16 @@ async fn bundle_decode(
   if max_bytes < 0 || max_bytes >= 2147483647 {
     raise @cli.CliError::Invalid("decoded byte limit is out of range")
   }
+  bundle_decode_bytes(encoded, encoding_name, max_bytes + 1, node)
+}
+
+///|
+async fn bundle_decode_bytes(
+  encoded : Bytes,
+  encoding_name : String,
+  output_limit : Int32,
+  node : String,
+) -> Bytes raise @cli.CliError {
   let dir = @fs.tmpdir(prefix="wsm-bundle-codec-") catch {
     error =>
       raise @cli.CliError::Io(
@@ -37,7 +47,7 @@ async fn bundle_decode(
     "--",
     encoding_name,
     input_path,
-    (max_bytes + 1).to_string(),
+    output_limit.to_string(),
   ]
   let result = @process.run(
     node,

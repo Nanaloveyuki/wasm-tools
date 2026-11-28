@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, realpath, rm, writeFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import os from 'node:os';
 import path from 'node:path';
@@ -69,7 +69,7 @@ async function main() {
     await writeFile(stepSummary, '');
 
     let serial = 0;
-    async function invoke({ config, command = 'release', mode = 'check', outDir = '', wasmOpt = '' }) {
+    async function invoke({ config, command = 'release', mode = 'check', outDir = '', wasmOpt = '', strictFiles = 'false', npmArchive = '' }) {
       serial += 1;
       const outputFile = path.join(tempRoot, `outputs-${serial}.txt`);
       await writeFile(outputFile, '');
@@ -85,6 +85,8 @@ async function main() {
         INPUT_CONFIG: config,
         INPUT_MODE: mode,
         INPUT_OUT_DIR: outDir,
+        INPUT_STRICT_FILES: strictFiles,
+        INPUT_NPM_ARCHIVE: npmArchive,
         INPUT_MOONHOSTABI: 'moonhostabi',
         INPUT_WASM_OPT: wasmOpt,
       };
@@ -226,6 +228,23 @@ async function main() {
     const bundleSummary = await readFile(bundleOutputs.summary, 'utf8');
     assert.match(bundleSummary, /module\.wasm/);
     assert.match(bundleSummary, /action-consumer/);
+
+    const strictBundle = await invoke({ config: bundleConfig, command: 'bundle', strictFiles: 'true' });
+    assert.equal(strictBundle.result.status, 1);
+    const strictOutputs = decodeOutputs(await readFile(strictBundle.outputs, 'utf8'));
+    assert.equal(strictOutputs.status, 'failed');
+    const strictReport = JSON.parse(await readFile(strictOutputs['report-json'], 'utf8'));
+    assert.ok(strictReport.findings.some((finding) => finding.code === 'file_undeclared' && finding.path === 'bundle.json'));
+
+    const invalidArchivePath = path.join(workspace, 'invalid.tgz');
+    await writeFile(invalidArchivePath, original);
+    const invalidArchive = await invoke({ config: bundleConfig, command: 'bundle', npmArchive: 'invalid.tgz' });
+    assert.equal(invalidArchive.result.status, 1);
+    const archiveOutputs = decodeOutputs(await readFile(invalidArchive.outputs, 'utf8'));
+    assert.equal(archiveOutputs.status, 'failed');
+    const archiveReport = JSON.parse(await readFile(archiveOutputs['report-json'], 'utf8'));
+    assert.equal(archiveReport.archive, await realpath(invalidArchivePath));
+    assert.ok(archiveReport.findings.some((finding) => finding.code === 'archive_invalid'));
 
     const staleModulePath = path.join(workspace, 'stale-module.wasm');
     const staleWatPath = path.join(workspace, 'stale-module.wat');

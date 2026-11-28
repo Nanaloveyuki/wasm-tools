@@ -295,79 +295,15 @@ fn validate_relative_path(
   path : String,
   label : String,
 ) -> Unit raise ManifestError {
-  if path.is_empty() || path.has_prefix("/") || path.contains("\\") {
-    raise ManifestError::ManifestError(
-      label + " must be a portable relative path using / separators",
-    )
+  if @bundle_path.portable_path_error(path) is Some(message) {
+    raise ManifestError::ManifestError(label + " " + message)
   }
-  for char in path {
-    if char.to_int() < 32 ||
-      char.to_int() == 127 ||
-      contains_char("<>:\"|?*", char) {
-      raise ManifestError::ManifestError(
-        label + " contains a character not allowed in portable paths",
-      )
-    }
-  }
-  for segment in path.split("/") {
-    if segment.is_empty() || segment == "." || segment == ".." {
-      raise ManifestError::ManifestError(
-        label + " must not contain empty, . or .. path segments",
-      )
-    }
-    if segment.has_suffix(".") || segment.has_suffix(" ") {
-      raise ManifestError::ManifestError(
-        label + " segments must not end in a dot or space",
-      )
-    }
-    let parts = segment.split(".").to_array()
-    let stem = parts[0].to_owned().to_upper()
-    if is_windows_device_name(stem) {
-      raise ManifestError::ManifestError(
-        label + " contains a reserved Windows device name",
-      )
-    }
-  }
-}
-
-///|
-fn is_windows_device_name(stem : String) -> Bool {
-  if ["CON", "PRN", "AUX", "NUL", "CONIN$", "CONOUT$"].contains(stem) {
-    return true
-  }
-  windows_numbered_device(stem, "COM") || windows_numbered_device(stem, "LPT")
-}
-
-///|
-fn windows_numbered_device(name : String, prefix : String) -> Bool {
-  if !name.has_prefix(prefix) {
-    return false
-  }
-  let suffix = name.get_view(start=prefix.length()).unwrap_or("").to_owned()
-  if suffix.length() != 1 {
-    return false
-  }
-  let digit = suffix[0]
-  (digit >= '1' && digit <= '9') ||
-  digit == '¹' ||
-  digit == '²' ||
-  digit == '³'
 }
 
 ///|
 fn contains_control(value : String) -> Bool {
   for char in value {
     if char.to_int() < 32 || char.to_int() == 127 {
-      return true
-    }
-  }
-  false
-}
-
-///|
-fn contains_char(values : String, target : Char) -> Bool {
-  for value in values {
-    if value == target {
       return true
     }
   }

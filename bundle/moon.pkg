@@ -1,4 +1,5 @@
 import {
   "moonbitlang/core/json",
   "Nanaloveyuki/wasm-tools/internal/json_number",
+  "Nanaloveyuki/wasm-tools/internal/bundle_path",
 }

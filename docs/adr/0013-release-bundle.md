@@ -12,7 +12,7 @@ A valid WASM module can ship with a missing loader or worker, a stale compressed
 
 Add `wsm bundle check MANIFEST`. An explicit versioned manifest lists publication paths, compressed-to-original relations, and Node ESM consumer entry points. MoonBit validates the manifest and reference closure, captures file bytes and SHA-256, evaluates findings and expected results, and writes JSON/Markdown reports. Node's standard zlib and JavaScript/WebAssembly runtime perform decompression and actual consumer execution. No compressor, ABI comparison, JS dependency parser or size-attribution engine is introduced.
 
-Version 1 checks a directory, not an archive, npm packing rules or an OCI registry. The explicit root is resolved once and may point through a symlink. Below that resolved root, file paths must be portable relative paths and declared files must be regular files with no symlink at any path segment. Reports cannot replace the manifest or declared inputs and cannot target symlinks. Undeclared files are neither checked nor copied. The captured input limit is 64 MiB across at most 256 files.
+Directory checks resolve the explicit root once, allowing the root itself to point through a symlink. Below that root, file paths must be portable relative paths and declared files must be regular files with no symlink at any path segment. Reports cannot replace the manifest or declared inputs and cannot target symlinks. By default, checks capture only declared files. The captured input limit is 64 MiB across at most 256 declared files.
 
 Each encoded file names a declared identity source. Decode its captured bytes and compare the exact result against the captured original, including zero-length originals. Invalid streams and stale copies fail. Decoder output is bounded by the expected original length plus one byte; input left unconsumed by the decoder is rejected, including trailing padding.
 
@@ -23,6 +23,12 @@ Consumers import a declared `.mjs` entry, call a named export with JSON argument
 The Linux Action accepts `command: bundle` with `mode: check`; its existing `command: release` default preserves check/prepare callers. It passes its own Node executable to the CLI and continues to publish per-invocation JSON/Markdown paths and status. It rejects preparation flags for bundles. CI pins Node 20 to verify the minimum supported runtime.
 
 The publication-package focus is inspired by [publint](https://publint.dev/docs/); testing actual runtime behavior is informed by [wasm-pack test](https://github.com/wasm-bindgen/wasm-pack/blob/master/docs/src/commands/test.md). These are design references, not copied implementations or claims to reproduce all of their checks.
+
+### Strict inventory and npm archives
+
+An optional `--strict-files` check compares the exact file paths in the manifest with the selected input. Directory inventories include hidden files and report symlinks as entries without descending into them. Empty directories have no effect. Strict directory checks require report paths outside the scanned root so repeated checks see the same inputs.
+
+`--npm-archive FILE` selects an npm gzip tarball as the input. Resolve the file path from the invocation directory, or from the workspace in the Action. Member paths are relative to npm's `package/` directory. The manifest's `root` field continues to select the root for directory checks. Before file capture, the reader checks archive framing, portable path identity, and the presence of `package/package.json` as a UTF-8 JSON object. Archive files stay in memory and only declared bytes enter the consumer snapshot. JSON reports identify the archive path. Both input options also apply to `command: bundle` in the Action.
 
 ## Verification gates
 
@@ -35,4 +41,4 @@ Proceed to each implementation gate only after the previous gate passes. Existin
 
 ## Reference review, 2026-11-18
 
-The current comparison is recorded in the root [README](../../README.md#独立贡献与生态分工), with fixed Wasmoon `2e98651`, moonsize `9499de8`, MoonHostABI `b2fcd60` and wasmslim `0.3.1` references. MoonHostABI already has real generated-adapter and isolated-install consumer tests; runtime testing itself is not a unique contribution. moonsize has whole-file gzip measurement and CI workflows plus a toolchain setup Action. The contribution here is checking relationships between the actual declared publication files and running configured ESM consumers from captured files, while delegating ABI and detailed size analysis.
+The comparison is recorded in the [contributor guide](../../CONTRIBUTING.md#独立贡献与生态分工), with fixed Wasmoon `2e98651`, moonsize `9499de8`, MoonHostABI `b2fcd60` and wasmslim `0.3.1` references. MoonHostABI already has real generated-adapter and isolated-install consumer tests; runtime testing itself is not a unique contribution. moonsize has whole-file gzip measurement and CI workflows plus a toolchain setup Action. The contribution here is checking relationships between the actual declared publication files and running configured ESM consumers from captured files, while delegating ABI and detailed size analysis.

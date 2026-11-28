@@ -4,12 +4,14 @@
 from __future__ import annotations
 
 from decimal import Decimal
+from io import BytesIO
 import hashlib
 import json
 import os
 from pathlib import Path
 import shutil
 import subprocess
+import tarfile
 import tempfile
 
 
@@ -27,9 +29,10 @@ def run(
     *,
     expected: int = 0,
     env: dict[str, str] | None = None,
+    cwd: Path | None = None,
     timeout: float = 20,
 ) -> subprocess.CompletedProcess[str]:
-    result = subprocess.run(command, text=True, capture_output=True, check=False, env=env, timeout=timeout)
+    result = subprocess.run(command, text=True, capture_output=True, check=False, env=env, cwd=cwd, timeout=timeout)
     if result.returncode != expected:
         raise AssertionError(
             f"command exited {result.returncode}, expected {expected}: {command!r}\n"
@@ -80,6 +83,8 @@ def main() -> int:
             report_path: Path | None = None,
             summary_path: Path | None = None,
             node_path: str | None = None,
+            strict_files: bool = False,
+            npm_archive: Path | None = None,
             env: dict[str, str] | None = None,
         ) -> tuple[subprocess.CompletedProcess[str], dict[str, object] | None]:
             report_path = report_path or work / f"{manifest.stem}.report.json"
@@ -88,6 +93,10 @@ def main() -> int:
                 command.extend(["--summary", str(summary_path)])
             if node_path is not None:
                 command.extend(["--node", node_path])
+            if strict_files:
+                command.append("--strict-files")
+            if npm_archive is not None:
+                command.extend(["--npm-archive", str(npm_archive)])
             result = run(command, expected=expected, env=env)
             if expected == 2:
                 return result, None
@@ -166,6 +175,45 @@ def main() -> int:
         require(summary_path.is_file(), "Markdown summary was not written")
         require(summary_path.read_text(encoding="utf-8").strip(), "Markdown summary is empty")
 
+        strict_root = work / "strict-root"
+        (strict_root / "empty" / "nested").mkdir(parents=True)
+        (strict_root / "index.mjs").write_bytes(asset_bytes)
+        strict_manifest = write_manifest(
+            "strict", {**manifest_for({"path": "index.mjs"}), "root": "strict-root"},
+        )
+        _, strict_report = invoke(strict_manifest, strict_files=True)
+        require(strict_report is not None and strict_report["findings"] == [], "empty directories should not affect strict file comparison")
+        case_manifest = write_manifest(
+            "strict-case", {**manifest_for({"path": "Index.mjs"}), "root": "strict-root"},
+        )
+        _, case_report = invoke(case_manifest, strict_files=True, expected=1)
+        require(case_report is not None, "strict name mismatch should produce a report")
+        case_findings = {(item["code"], item["path"]) for item in case_report["findings"]}
+        require(case_findings == {("file_missing", "Index.mjs"), ("file_undeclared", "index.mjs")}, "strict paths should match case exactly on every platform")
+
+        (strict_root / "extra").mkdir()
+        (strict_root / "extra" / "leftover.txt").write_text("old release", encoding="utf-8")
+        unexpected_paths = {"extra/leftover.txt"}
+        try:
+            (strict_root / "extra-link").symlink_to(bundle, target_is_directory=True)
+            unexpected_paths.add("extra-link")
+        except (NotImplementedError, OSError):
+            pass
+        _, report = invoke(strict_manifest)
+        require(report is not None and report["findings"] == [], "default directory check should ignore unlisted paths")
+        _, report = invoke(strict_manifest, strict_files=True, expected=1)
+        require(report is not None, "undeclared files should produce a strict report")
+        require(
+            {(item["code"], item["path"]) for item in report["findings"]}
+            == {("file_undeclared", path) for path in unexpected_paths},
+            "strict checking should report all extras without following directory symlinks",
+        )
+        misplaced_report = strict_root / "report.json"
+        misplaced_summary = strict_root / "extra" / "report.md"
+        invoke(strict_manifest, strict_files=True, expected=2, report_path=misplaced_report)
+        invoke(strict_manifest, strict_files=True, expected=2, summary_path=misplaced_summary)
+        require(not misplaced_report.exists() and not misplaced_summary.exists(), "strict checking must reject outputs inside its root")
+
         manifest_alias = work / "manifest-alias"
         try:
             manifest_alias.symlink_to(work, target_is_directory=True)
@@ -211,6 +259,105 @@ def main() -> int:
                 row["decoded_sha256"] == hashlib.sha256(wasm_bytes).hexdigest(),
                 f"{path}: decoded digest mismatch",
             )
+
+        npm = shutil.which("npm")
+        if npm is not None:
+            npm_source = work / "npm-source"
+            npm_source.mkdir()
+            npm_entry = npm_source / "index.mjs"
+            npm_entry.write_text(
+                "import { readFile } from 'node:fs/promises';\n"
+                "export async function check() {\n"
+                "  const wasm = await readFile(new URL('./app.wasm', import.meta.url));\n"
+                "  const { instance } = await WebAssembly.instantiate(wasm);\n"
+                "  return instance.exports.answer();\n"
+                "}\n",
+                encoding="utf-8",
+            )
+            for path in (bundle / "app.wasm", app_gzip, app_brotli):
+                shutil.copyfile(path, npm_source / path.name)
+            long_member = "/".join(["long-published-directory"] * 4 + ["资源.txt"])
+            long_file = npm_source / long_member
+            long_file.parent.mkdir(parents=True)
+            long_file.write_text("packed with a long UTF-8 path", encoding="utf-8")
+            (npm_source / "source-only.txt").write_text("excluded by npm files", encoding="utf-8")
+            packed_files = ["index.mjs", "app.wasm", "app.wasm.gz", "app.wasm.br", long_member]
+            (npm_source / "package.json").write_text(json.dumps({
+                "name": "wsm-local-bundle-fixture", "version": "1.0.0", "private": True,
+                "files": packed_files,
+            }), encoding="utf-8")
+            run([
+                npm, "pack", "--offline", "--ignore-scripts", "--quiet",
+                "--cache", str(work / "npm-cache"), "--pack-destination", str(work),
+            ], cwd=npm_source)
+            archive = work / "wsm-local-bundle-fixture-1.0.0.tgz"
+            archive_bytes = archive.read_bytes()
+            archive_files = [
+                {"path": "index.mjs"},
+                {"path": "app.wasm", "kind": "wasm"},
+                {"path": "app.wasm.gz", "encoding": "gzip", "source": "app.wasm"},
+                {"path": "app.wasm.br", "encoding": "br", "source": "app.wasm"},
+                {"path": long_member},
+                {"path": "package.json"},
+            ]
+            archive_config = {
+                "format_version": 1, "root": "directory-view-only", "files": archive_files,
+                "consumers": [{"name": "packed-wasm", "entry": "index.mjs", "export": "check", "expected": 42}],
+            }
+            archive_manifest = write_manifest("npm-archive", archive_config)
+            _, report = invoke(archive_manifest, npm_archive=archive, strict_files=True, node_path=node)
+            require(report is not None and report["status"] == "passed", "actual npm archive should pass strict checking")
+            require(Path(report["archive"]) == archive.resolve() and report["root"] == "package/", "report should identify the archive and logical package root")
+            require(report["consumers"][0]["actual"] == 42 and report["consumers"][0]["status"] == "passed", "consumer must load WASM from the archive")
+            require([item["status"] for item in report["compressions"]] == ["passed", "passed"], "compressed archive members should pass verification")
+            for row in report["files"]:
+                source_bytes = (npm_source / row["path"]).read_bytes()
+                require(row["bytes"] == len(source_bytes) and row["sha256"] == hashlib.sha256(source_bytes).hexdigest(), f"archive hash or byte count differs for {row['path']}")
+
+            subset_manifest = write_manifest("npm-archive-subset", {**archive_config, "files": archive_files[:-1]})
+            _, report = invoke(subset_manifest, npm_archive=archive, node_path=node)
+            require(report is not None and report["findings"] == [], "default archive check should ignore extra files")
+
+            incomplete_manifest = write_manifest("npm-archive-incomplete", {
+                **archive_config, "files": [*archive_files[:-1], {"path": "source-only.txt"}],
+            })
+            _, report = invoke(incomplete_manifest, npm_archive=archive, strict_files=True, expected=1, node_path=node)
+            require(report is not None, "archive file mismatch should produce a report")
+            require(
+                {(item["code"], item["path"]) for item in report["findings"]}
+                == {("file_missing", "source-only.txt"), ("file_undeclared", "package.json")},
+                "archive check should use npm's packed file set",
+            )
+            require(report["consumers"][0]["status"] == "skipped", "consumers require all declared archive members")
+            invoke(archive_manifest, npm_archive=archive, expected=2, report_path=archive, node_path=node)
+            require(archive.read_bytes() == archive_bytes, "report output must not replace its archive input")
+
+        archive_manifest = write_manifest("invalid-npm-archive", manifest_for({"path": "index.mjs"}))
+        for name, members, message in (
+            ("bad-gzip", [], "gzip"),
+            ("wrong-root", ["other/index.mjs"], "package/"),
+            ("duplicate-path", ["package/index.mjs", "package/index.mjs"], "conflicting"),
+            ("duplicate-case", ["package/index.mjs", "package/INDEX.mjs"], "conflicting"),
+            ("file-parent", ["package/index.mjs", "package/index.mjs/child"], "conflicting"),
+            ("missing-package-json", ["package/index.mjs"], "missing package/package.json"),
+            ("invalid-package-json", ["package/index.mjs", "package/package.json"], "invalid npm archive package.json"),
+        ):
+            archive = work / f"{name}.tgz"
+            if members:
+                with tarfile.open(archive, "w:gz") as packed:
+                    for path in members:
+                        entry = tarfile.TarInfo(path)
+                        entry.size = len(asset_bytes)
+                        packed.addfile(entry, BytesIO(asset_bytes))
+            else:
+                archive.write_bytes(b"not gzip")
+            _, report = invoke(
+                archive_manifest, npm_archive=archive, expected=1, node_path=node,
+                report_path=work / f"{name}-archive.report.json",
+            )
+            require(report is not None and report["status"] == "failed", f"{name} archive should produce a failed report")
+            require(any(item["code"] == "archive_invalid" and message in item["message"] for item in report["findings"]),
+                    f"{name} archive should explain why it is invalid")
 
         # Older valid modules fail when their bytes do not match the declared source.
         same_size_wat = work / "older-same-size.wat"
