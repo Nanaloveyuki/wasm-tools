@@ -19,6 +19,6 @@ pub async fn cmd_symbolize(args : Array[String]) -> Int32 raise @cli.CliError {
   } else {
     @wasm.symbolize_text(symbol)
   }
-  @cli.write_stdout(text)
+  @cli.write_output(options.output, @utf8.encode(text))
   0
 }

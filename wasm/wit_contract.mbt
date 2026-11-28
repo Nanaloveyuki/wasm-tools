@@ -220,7 +220,10 @@ fn wit_function_signature(
   out.write_string("fn[")
   for param in function.params {
     out.write_string(
-      wit_type_key(param.ty, types, scope_names, 0, alias_targets),
+      wit_pair(
+        param.name,
+        wit_type_key(param.ty, types, scope_names, 0, alias_targets),
+      ),
     )
     out.write_char(';')
   }

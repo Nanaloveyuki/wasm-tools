@@ -11,7 +11,11 @@ pub fn compare_wit_snapshots(
     changes.push({
       key: "snapshot",
       status: Unknown,
-      detail: "unsupported in-memory WIT snapshot format version",
+      detail: if baseline.format_version == 1 || candidate.format_version == 1 {
+        "WIT snapshot format 1 omits parameter names. Regenerate it from the original WIT source."
+      } else {
+        "unsupported in-memory WIT snapshot format version"
+      },
     })
   }
   if baseline.namespace_name != candidate.namespace_name ||
@@ -77,22 +81,24 @@ fn compare_wit_side(
       })
       continue
     }
-    match (old_group.get(0), new_group.get(0)) {
+    let old_entry = old_group.get(0)
+    let new_entry = new_group.get(0)
+    let unknown = match old_entry {
+      Some(entry) if entry.signature.has_prefix("unknown:") => Some(entry)
+      _ => new_entry.filter(entry => entry.signature.has_prefix("unknown:"))
+    }
+    if unknown is Some(entry) {
+      changes.push({
+        key: label,
+        status: Unknown,
+        detail: "WIT item cannot be compared safely: " +
+        entry.signature[8:].to_owned(),
+      })
+      continue
+    }
+    match (old_entry, new_entry) {
       (Some(old_entry), Some(new_entry)) =>
-        if old_entry.signature.has_prefix("unknown:") ||
-          new_entry.signature.has_prefix("unknown:") {
-          let detail = if old_entry.signature.has_prefix("unknown:") {
-            old_entry.signature
-          } else {
-            new_entry.signature
-          }
-          changes.push({
-            key: label,
-            status: Unknown,
-            detail: "WIT item cannot be compared safely: " +
-            detail[8:].to_owned(),
-          })
-        } else if old_entry.kind != new_entry.kind ||
+        if old_entry.kind != new_entry.kind ||
           old_entry.signature != new_entry.signature {
           changes.push({
             key: label,

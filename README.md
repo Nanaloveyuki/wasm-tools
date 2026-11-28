@@ -10,7 +10,7 @@ Core ABI 检查由可选的 **MoonHostABI native CLI** 执行。新发布流程�
 
 ## 版本与运行
 
-`0.6.0` 在 Mooncakes 提供 `bundle` 和 `release` 命令。GitHub Action 可引用 `Nanaloveyuki/wasm-tools@v0.6.0`。
+`0.6.1` 在 Mooncakes 提供 `bundle` 和 `release` 命令。GitHub Action 可引用 `Nanaloveyuki/wasm-tools@v0.6.1`。
 
 编译器固定在 `.moonbit-toolchain`，本地与 Action 使用同一归档：
 
@@ -63,13 +63,14 @@ moonrun _build/wasm/release/build/wasm-tools.wasm -- bundle check "$bundle_examp
 - `files` 为 1–256 项，捕获总量上限 64 MiB。`kind` 默认 `asset`，`wasm` 调用已有 Core 验证器；`encoding` 默认 `identity`。未知字段、重复 JSON key、错误类型和悬空引用都报配置错误。未声明的文件不复制到消费目录。
 - gzip/br 必须引用已声明的 identity 原件，禁止压缩链。文件只读取一次，哈希、解压比对和消费副本都使用捕获的字节。解码由 Node 标准库完成，MoonBit 比较完整字节；解压上限为原件长度加一，拒绝解码器未消费的尾部数据（含填充）。
 - `consumers` 可省略，最多 16 项。入口必须是已声明的 identity `.mjs` 文件；`export` 为要调用的函数名，`args` 默认 `[]`，`expected` 必填且可为 `null`。`requires` 可省略，用于校验显式引用；每个用例仍获得全部声明文件。对象键顺序不影响 JSON 比较，数组顺序影响结果。
+- 数字按 JSON 文本表示的精确十进制值比较。`1`、`1.0` 和 `1e0` 等值。报告保留清单中的 `expected` 数字和 Node 序列化返回值时生成的 `actual` 数字。`args` 由 Node 读取，JavaScript 函数接收的数值遵循 `Number` 精度。
 - 每个用例在新的目录和 Node 子进程运行，默认超时 5000 ms，可设为 100–60000 ms。未捕获全部文件时跳过消费检查，文件失败仍阻止整体通过。异常、结果不符、零退出码但无结果、非 JSON 返回值和超时均失败。日志与结果通道分开；stdout/stderr 各限 1 MiB，报告各保留前 4096 字节，JSON 结果限 1 MiB。
 
 仅检查普通文件及 Core 字节时不依赖 Node；声明压缩副本或消费入口时需要 Node.js 20+，可通过 `--node PATH` 指定。缺少运行时属于 IO 错误。JSON/Markdown 输出不得覆盖清单或声明文件，不接受符号链接目标；后续 JSON 写入失败时恢复已有 Markdown 内容。
 
 报告的 `manifest` 和 `root` 记录真实路径；相对 `root` 的解析起点仍是传入清单路径所在目录。
 
-消费入口是项目自己的代码，必须自行关闭 Worker 等句柄。子进程仅保留 PATH、系统路径和临时目录环境变量，业务参数通过 `args` 传入。临时目录与清除 `NODE_OPTIONS`/`NODE_PATH` 用于暴露源码目录里的相对依赖漏发；它不限制代码的绝对路径、网络或其他进程访问，也不限制进程内存。首版不验证浏览器环境、不安装 npm 依赖、不检查 tar/zip、npm 包或 OCI 镜像。
+消费入口是项目自己的代码，必须自行关闭 Worker 等句柄。子进程仅保留 PATH、系统路径和临时目录环境变量，业务参数通过 `args` 传入。消费快照避开带有 Node 包配置或依赖的祖先目录，Node 全局包查找也会关闭。它不限制代码的绝对路径、网络或其他进程访问，也不限制进程内存。首版不验证浏览器环境、不安装 npm 依赖、不检查 tar/zip、npm 包或 OCI 镜像。
 
 ## 单产物策略与处理
 
@@ -187,7 +188,7 @@ moonhostabi lock previous/app.wasm --out previous/app.lock.json
       ${{ steps.wasm.outputs.summary }}
 ```
 
-其他仓库将 `uses: ./` 换成 `Nanaloveyuki/wasm-tools@v0.6.0`，并提供自己的配置。完整的本仓库调用与失败验证见 [.github/workflows/ci.yml](.github/workflows/ci.yml)。
+其他仓库将 `uses: ./` 换成 `Nanaloveyuki/wasm-tools@v0.6.1`，并提供自己的配置。完整的本仓库调用与失败验证见 [.github/workflows/ci.yml](.github/workflows/ci.yml)。
 
 | 输入 | 作用 |
 |---|---|
@@ -195,7 +196,7 @@ moonhostabi lock previous/app.wasm --out previous/app.lock.json
 | `command` | `release`（默认，兼容既有调用）或 `bundle` |
 | `mode` | `check`（默认）；仅 `release` 支持 `prepare` |
 | `out-dir` | prepare 的新目录；省略时在本次独立临时目录内生成 |
-| `install-moonhostabi` | `true` 时安装固定的 `0.6.0`；默认 `false` |
+| `install-moonhostabi` | `true` 时安装固定的 `0.6.1`；默认 `false` |
 | `moonhostabi` | 原生 CLI 名称或路径，默认 `moonhostabi` |
 | `wasm-opt` | 可选优化器路径 |
 
@@ -232,7 +233,7 @@ Action 不自动改写基线、发布 release 或提交 PR 评论；下游根据
 
 ## 原有工具与边界
 
-已发布的 `contract snapshot/check`、`contract wit snapshot/check` API 和命令保留原行为，属于旧工作流，不计作本次发布检查产品的独立贡献，也不作为新流程的 ABI 回退。其快照格式与 MoonHostABI lock 不互通。
+`contract snapshot/check` 和 `contract wit snapshot/check` 可独立用于已有工作流。WIT 快照格式 2 记录函数参数名。用格式 1 的快照执行检查会得到 `unknown`，请用原始 WIT 重新生成基线。契约快照格式与 MoonHostABI lock 不互通。
 
 辅助命令继续保留：`validate`、`print`、`parse`、`dump`、`strip`、`metadata`、`size`、`opt`、`symbolize`、`component wit`。通用 WIT/WAC 操作使用 `moonx moonrockz/wasm-devkit`。
 

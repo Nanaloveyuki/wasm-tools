@@ -24,12 +24,16 @@ pub fn wit_snapshot_json(snapshot : WitSnapshot) -> String {
 
 ///|
 pub fn parse_wit_snapshot(text : String) -> WitSnapshot raise SnapshotError {
-  let json = @json.parse(text, reject_duplicate_keys=true) catch {
+  let json = @json.parse(
+    text,
+    reject_duplicate_keys=true,
+    preserve_number_repr=true,
+  ) catch {
     e => raise SnapshotError::Invalid("invalid JSON: " + e.to_string())
   }
   guard json
     is {
-      "format_version": Number(version, ..),
+      "format_version": Number(_) as version,
       "namespace": String(namespace_name),
       "package": String(package_name),
       "package_version": package_version_json,
@@ -42,10 +46,13 @@ pub fn parse_wit_snapshot(text : String) -> WitSnapshot raise SnapshotError {
       "WIT snapshot must contain format_version, package identity, world, imports, and exports",
     )
   }
-  if version != WIT_SNAPSHOT_FORMAT_VERSION.to_double() {
-    raise SnapshotError::Invalid(
-      "unsupported WIT snapshot format version: " + version.to_string(),
-    )
+  let format_version = match @json_number.nonnegative_int32(version) {
+    Some(1) => 1
+    Some(current) if current == WIT_SNAPSHOT_FORMAT_VERSION => current
+    _ =>
+      raise SnapshotError::Invalid(
+        "unsupported WIT snapshot format version: " + version.stringify(),
+      )
   }
   let package_version = match package_version_json {
     Null => None
@@ -56,7 +63,7 @@ pub fn parse_wit_snapshot(text : String) -> WitSnapshot raise SnapshotError {
   let parsed_imports = parse_wit_entries(imports)
   let parsed_exports = parse_wit_entries(exports)
   {
-    format_version: WIT_SNAPSHOT_FORMAT_VERSION,
+    format_version,
     namespace_name,
     package_name,
     package_version,

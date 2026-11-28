@@ -2,7 +2,7 @@
 pub const TOOL_NAME : String = "wsm"
 
 ///|
-pub const VERSION : String = "0.6.0"
+pub const VERSION : String = "0.6.1"
 
 ///|
 /// 所有子命令共享的输入输出选项。`input = None` 表示 stdin。

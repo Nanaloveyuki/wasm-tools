@@ -60,7 +60,11 @@ async fn release_verify_abi(
       }
   }
   let stderr_text = result.stderr_text() catch { _ => "" }
-  let report = @json.parse(output, reject_duplicate_keys=true) catch {
+  let report = @json.parse(
+    output,
+    reject_duplicate_keys=true,
+    preserve_number_repr=true,
+  ) catch {
     _ =>
       return {
         passed: false,
@@ -175,18 +179,10 @@ fn validate_release_abi_report(
 ) -> String? {
   match report {
     Object(root) => {
-      let schema = match root.get("schemaVersion") {
-        Some(Number(value, ..)) => {
-          let integer = value.to_int()
-          if integer.to_double() == value && (integer == 1 || integer == 2) {
-            Some(integer)
-          } else {
-            None
-          }
-        }
-        _ => None
-      }
-      if schema == None {
+      let schema = root
+        .get("schemaVersion")
+        .bind(@json_number.nonnegative_int32)
+      if schema != Some(1) && schema != Some(2) {
         return Some("unsupported or malformed report schemaVersion")
       }
       let outcome = match root.get("outcome") {

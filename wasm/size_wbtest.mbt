@@ -68,3 +68,20 @@ test "size_diff classifies added, removed and changed functions" {
   inspect(changed, content="1")
   inspect(diff.after_total > diff.before_total, content="true")
 }
+
+///|
+test "size diff tracks separate functions sharing one debug name" {
+  let names = b"\x00\x10\x04name\x01\x09\x02\x00\x02xx\x01\x02xx"
+  let before = size_report(wat_to_core("(module (func) (func))") + names, "a")
+  let after = size_report(
+    wat_to_core("(module (func) (func nop))") + names,
+    "b",
+  )
+  assert_eq(before.functions.map(function_ => function_.name), ["xx", "xx"])
+  assert_eq(after.functions.map(function_ => function_.name), ["xx", "xx"])
+  let diff = size_diff(after, before)
+  assert_eq(diff.changes.length(), 1)
+  assert_eq(diff.changes[0].name, "xx")
+  assert_eq(diff.changes[0].before, 2)
+  assert_eq(diff.changes[0].after, 3)
+}

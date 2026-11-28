@@ -4,7 +4,7 @@ package "Nanaloveyuki/wasm-tools/contract"
 // Values
 pub const SNAPSHOT_FORMAT_VERSION : Int32 = 1
 
-pub const WIT_SNAPSHOT_FORMAT_VERSION : Int32 = 1
+pub const WIT_SNAPSHOT_FORMAT_VERSION : Int32 = 2
 
 pub fn compare_snapshots(Snapshot, Snapshot, Direction) -> Report
 

@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+from decimal import Decimal
 import hashlib
 import json
 import os
@@ -434,6 +435,71 @@ def main() -> int:
         poisoned_env["NODE_PATH"] = str(work)
         _, report = invoke(baseline_consumer_manifest, node_path=node, env=poisoned_env)
         require(report is not None and report["status"] == "passed", "consumer Node environment should ignore host Node overrides")
+
+        if Path(node).drive.casefold() == Path.cwd().drive.casefold():
+            relative_node = os.path.relpath(node, Path.cwd())
+            if not Path(relative_node).parent.parts:
+                relative_node = f".{os.sep}{relative_node}"
+            _, report = invoke(baseline_consumer_manifest, node_path=relative_node)
+            require(report is not None and report["status"] == "passed", "relative --node should resolve from the invocation directory")
+        result, _ = invoke(work / "missing-manifest.json", expected=2)
+        require("no such file" in result.stderr, "a missing manifest must report its IO error")
+
+        # A temp location under a Node project must not change package lookup.
+        (bundle / "bare.mjs").write_text("import value from 'wsm-helper'; export const run = () => value;\n", encoding="utf-8")
+        ambient = work / "ambient"
+        ambient_tmp = ambient / "temp"
+        ambient_tmp.mkdir(parents=True)
+        ambient_entry = ambient / "node_modules/wsm-helper/index.js"
+        ambient_entry.parent.mkdir(parents=True)
+        ambient_entry.write_text("module.exports = 42;\n", encoding="utf-8")
+        ambient_env = {**os.environ, **dict.fromkeys(("TMPDIR", "TMP", "TEMP"), str(ambient_tmp))}
+        bare_consumer = {"name": "bare", "entry": "bare.mjs", "export": "run", "expected": 42}
+        bare_manifest = consumer_manifest("bare-missing", [{"path": "bare.mjs"}], [bare_consumer])
+        for env in (None, ambient_env):
+            _, report = invoke(bare_manifest, expected=1, node_path=node, env=env)
+            require(report is not None and report["consumers"][0]["status"] == "failed", "an ambient package must not satisfy a bundled import")
+            require(any(row["code"] == "consumer_runtime" for row in report["findings"]), "expected a missing dependency runtime finding")
+        dependency = "node_modules/wsm-helper/index.js"
+        (bundle / dependency).parent.mkdir(parents=True)
+        shutil.copyfile(ambient_entry, bundle / dependency)
+        bare_manifest = consumer_manifest(
+            "bare-declared", [{"path": "bare.mjs"}, {"path": dependency}], [bare_consumer],
+        )
+        for env in (None, ambient_env):
+            _, report = invoke(bare_manifest, node_path=node, env=env)
+            require(report is not None and report["consumers"][0]["actual"] == 42, "a declared package should work with either temp directory")
+
+        # Python Decimal compares the report's original numeric tokens, even
+        # where parsing them as JS numbers would give the same rounded value.
+        (bundle / "return-json.mjs").write_text("export const run = (value) => value;\n", encoding="utf-8")
+        pairs = [
+            *((str(n), token) for n in range(2**53 - 2, 2**53 + 5, 2) for token in (f"{n}.00e+0", str(n + 1))),
+            ("0.1", "0.10000000000000001"),
+            ("1.25", "125e-2"),
+            ("0", "-0.0"),
+            ("0", "1e-9999"),
+        ]
+        number_consumers = [
+            {"name": f"json-{i}", "entry": "return-json.mjs", "export": "run",
+             "args": [{"number": [json.loads(actual)], "ok": True}],
+             "expected": {"ok": True, "number": [f"NUMBER-{i}"]}}
+            for i, (actual, _) in enumerate(pairs)
+        ]
+        number_manifest = consumer_manifest("exact-decimals", [{"path": "return-json.mjs"}], number_consumers)
+        manifest_text = number_manifest.read_text(encoding="utf-8")
+        for i, (_, expected) in enumerate(pairs):
+            manifest_text = manifest_text.replace(f'"NUMBER-{i}"', expected)
+        number_manifest.write_text(manifest_text, encoding="utf-8")
+        _, report = invoke(number_manifest, expected=1, node_path=node)
+        require(report is not None, "missing comparison report")
+        exact_rows = json.loads(
+            (work / "exact-decimals.report.json").read_text(encoding="utf-8"), parse_float=Decimal,
+        )["consumers"]
+        for row, (actual, expected) in zip(exact_rows, pairs, strict=True):
+            actual, expected = Decimal(actual), Decimal(expected)
+            require(row["actual"]["number"] == [actual] and row["expected"]["number"] == [expected], "report did not preserve the compared number")
+            require((row["status"] == "passed") == (actual == expected), f"wrong exact JSON comparison: {row}")
 
         # Files left in the source directory cannot leak into a declared-only consumer snapshot.
         for name, omitted, requires in (

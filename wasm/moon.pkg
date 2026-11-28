@@ -13,6 +13,7 @@ import {
   "moonrockz/wit/parser" @wit_parser,
   "moonrockz/wit/verifier" @wit_verifier,
   "moonbitlang/core/encoding/utf8",
+  "moonbitlang/core/buffer",
   "moonbitlang/core/string" @str,
   "moonbitlang/core/async/fs",
   "moonbitlang/core/async/process",

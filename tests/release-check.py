@@ -214,6 +214,67 @@ def main() -> int:
                 command.extend(["--summary", str(summary_path)])
             return run(command, expected=expected_code)
 
+        # Keep every byte except one Core body-size field identical. Include
+        # padded LEBs, both sides of the 127-byte boundary, and nested ends.
+        module_prefix = b"\0asm\1\0\0\0\x01\x04\x01\x60\x00\x00\x03\x03\x02\x00\x00"
+        framing_cases: dict[str, bool] = {}
+        for nops in (0, 1, 122, 123, 124, 127, 250, 1024):
+            body = b"\x00\x02\x40" + b"\x01" * nops + b"\x0b\x0b"
+            for width, change in ((2, 0), (5, 0), (2, -1), (2, 1), (5, -2), (5, 2)):
+                name = f"framing-{nops}-{width}-{change + 2}.wasm"
+                length = len(body) + change
+                padded = bytes(
+                    ((length >> (7 * digit)) & 0x7F) | (0x80 if digit + 1 < width else 0)
+                    for digit in range(width)
+                )
+                code = b"\x02" + padded + body + b"\x02\x00\x0b"
+                data = module_prefix + b"\x0a" + encode_uleb(len(code)) + code
+                (work / name).write_bytes(data)
+                framing_cases[name] = change == 0
+        node = shutil.which("node")
+        require(node is not None, "Node is required as the independent Core validator")
+        reference = run([
+            node, "-e",
+            "const fs=require('node:fs'); console.log(JSON.stringify(process.argv.slice(1).map(p => WebAssembly.validate(fs.readFileSync(p)))));",
+            *(str(work / name) for name in framing_cases),
+        ])
+        require(json.loads(reference.stdout) == list(framing_cases.values()), "bad Core framing fixtures")
+        for name, valid in framing_cases.items():
+            run([moonrun, str(WASM_CLI), "--", "validate", str(work / name)], expected=0 if valid else 1)
+        framing_config = config_for(*(artifact(f"case-{i}", name) for i, name in enumerate(framing_cases)))
+        report, _ = check("framing", framing_config, expected_code=1)
+        require(report is not None, "missing release framing report")
+        release_results = {row["input"]: row["status"] == "passed" for row in report["artifacts"]}
+        require(release_results == framing_cases, "release and Node disagree on Core function framing")
+        prepared = work / "framing-dist"
+        prepare("framing-prepare", framing_config, prepared, expected_code=1)
+        require(not prepared.exists(), "prepare published a batch with invalid Core framing")
+        manifest = write_config("framing-bundle", {
+            "format_version": 1, "files": [{"path": name, "kind": "wasm"} for name in framing_cases],
+        })
+        bundle = run([moonrun, str(WASM_CLI), "--", "bundle", "check", str(manifest)], expected=1)
+        rejected = {row["path"] for row in json.loads(bundle.stdout)["findings"] if row["code"] == "wasm_invalid"}
+        require(rejected == {name for name, valid in framing_cases.items() if not valid}, "bundle and Node disagree on Core function framing")
+
+        # A name entry may not read from the next section, even if the name
+        # subsection's own declared length fits inside its custom section.
+        broken_name = work / "name-overrun.wasm"
+        broken_name.write_bytes(b"\0asm\1\0\0\0" + custom_section("name", b"\x00\x01\x03") + custom_section("next", b""))
+        result = run([moonrun, str(WASM_CLI), "--", "metadata", str(broken_name)], expected=1)
+        require("name length overruns its payload" in result.stderr, "metadata lost the name subsection boundary")
+
+        for index, section_length in enumerate((b"\x80\x80\x80\x80\x10", encode_uleb(2147483647), b"\x80")):
+            broken_section = work / f"section-overrun-{index}.wasm"
+            broken_section.write_bytes(b"\0asm\1\0\0\0\x01" + section_length)
+            run([moonrun, str(WASM_CLI), "--", "dump", str(broken_section)], expected=1)
+
+        precise_budget = config_for(artifact("exact", "plain.wasm", {"max_bytes": len(base)}))
+        _, result = check(
+            "rounded-budget", precise_budget, expected_code=2,
+            raw=json.dumps(precise_budget).replace(f'"max_bytes": {len(base)}', f'"max_bytes": {len(base)}.0000000000000001'),
+        )
+        require("must be a nonnegative 32-bit integer" in result.stderr, "release accepted a rounded fractional budget")
+
         # The allowlist is unrestricted when omitted, and exact when present.
         report, _ = check(
             "default-allowlist",

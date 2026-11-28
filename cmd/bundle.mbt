@@ -39,7 +39,8 @@ pub async fn cmd_bundle(args : Array[String]) -> Int32 raise @cli.CliError {
     Some(path) if path != "-" => @path.Path(path).resolve().to_string()
     _ => raise @cli.CliError::Usage("bundle check requires a MANIFEST file")
   }
-  let text = @utf8.decode(@cli.read_input(Some(manifest_path)).exact_view()) catch {
+  let manifest_bytes = @cli.read_input(Some(manifest_path))
+  let text = @utf8.decode(manifest_bytes.exact_view()) catch {
     _ => raise @cli.CliError::Schema("bundle manifest is not UTF-8")
   }
   let manifest = @bundle.parse_manifest(text) catch {
@@ -63,19 +64,21 @@ pub async fn cmd_bundle(args : Array[String]) -> Int32 raise @cli.CliError {
     manifest,
   )
   let capture = bundle_capture(root, manifest)
+  let node = nodes.get(0).unwrap_or("node")
+  let node_path = @path.Path(node)
+  let node = if node_path.basename() != node[:] {
+    node_path.resolve().to_string()
+  } else {
+    node
+  }
   let findings = capture.findings
   let compressions = bundle_check_compressions(
     manifest,
     capture.data,
     findings,
-    nodes.get(0).unwrap_or("node"),
+    node,
   )
-  let consumers = bundle_check_consumers(
-    manifest,
-    capture.data,
-    findings,
-    nodes.get(0).unwrap_or("node"),
-  )
+  let consumers = bundle_check_consumers(manifest, capture.data, findings, node)
   let report = bundle_report_json(
     release_canonical_path(manifest_path),
     root,

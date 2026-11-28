@@ -25,27 +25,34 @@ pub fn Section::label(self : Section, kind : InputKind) -> String {
 
 ///|
 pub fn read_leb(data : Bytes, cursor : Ref[Int32]) -> Int32 raise @cli.CliError {
+  read_leb_until(data, cursor, data.length())
+}
+
+///|
+fn read_leb_until(
+  data : Bytes,
+  cursor : Ref[Int32],
+  end : Int32,
+) -> Int32 raise @cli.CliError {
   let mut result = 0
   let mut shift = 0
-  let mut count = 0
   while true {
     let pos = cursor.val
-    if pos >= data.length() {
+    if pos < 0 || pos >= end || pos >= data.length() {
       raise @cli.CliError::Invalid(
         "truncated LEB128 at offset " + pos.to_string(),
       )
     }
     let byte = data[pos].to_int()
     cursor.val = pos + 1
-    result = result | ((byte & 0x7f) << shift)
-    count = count + 1
-    if (byte & 0x80) == 0 {
-      break
-    }
-    if count >= 5 {
+    if shift == 28 && (byte & 0xf0) != 0 {
       raise @cli.CliError::Invalid(
         "LEB128 exceeds 32 bits at offset " + pos.to_string(),
       )
+    }
+    result = result | ((byte & 0x7f) << shift)
+    if (byte & 0x80) == 0 {
+      break
     }
     shift = shift + 7
   }
@@ -58,18 +65,7 @@ pub fn read_leb(data : Bytes, cursor : Ref[Int32]) -> Int32 raise @cli.CliError 
 ///|
 /// 扫描顶层 section 表。只做结构切分，不解释内容。
 pub fn scan_sections(data : Bytes) -> Array[Section] raise @cli.CliError {
-  if data.length() < 8 {
-    raise @cli.CliError::Invalid("input is shorter than the 8-byte wasm header")
-  }
-  if data[0] != b'\x00' || data[1] != b'a' || data[2] != b's' || data[3] != b'm' {
-    raise @cli.CliError::Invalid("missing wasm magic header")
-  }
-  let version = data[4].to_int() | (data[5].to_int() << 8)
-  if version != 1 && version != 0x0d {
-    raise @cli.CliError::Invalid(
-      "unsupported wasm version " + version.to_string(),
-    )
-  }
+  ignore(detect_kind(data))
   let sections : Array[Section] = []
   let cursor : Ref[Int32] = Ref(8)
   while cursor.val < data.length() {
@@ -78,7 +74,7 @@ pub fn scan_sections(data : Bytes) -> Array[Section] raise @cli.CliError {
     cursor.val = start + 1
     let size = read_leb(data, cursor)
     let payload = cursor.val
-    if payload + size > data.length() {
+    if size > data.length() - payload {
       raise @cli.CliError::Invalid(
         "section " +
         id.to_string() +
@@ -89,28 +85,33 @@ pub fn scan_sections(data : Bytes) -> Array[Section] raise @cli.CliError {
         " bytes, past end of input",
       )
     }
+    let end = payload + size
     let name = if id == 0 {
       let name_cursor : Ref[Int32] = Ref(payload)
-      let name_len = read_leb(data, name_cursor)
-      let name_start = name_cursor.val
-      if name_start + name_len > payload + size {
-        raise @cli.CliError::Invalid("custom section name overruns its payload")
-      }
-      Some(decode_utf8(data, name_start, name_len))
+      Some(read_name_until(data, name_cursor, end))
     } else {
       None
     }
     sections.push({ id, start, payload, size, name, })
-    cursor.val = payload + size
+    cursor.val = end
   }
   sections
 }
 
 ///|
-fn decode_utf8(data : Bytes, start : Int32, length : Int32) -> String {
-  match data.get_view(start~, end=start + length) {
-    Some(view) => @utf8.decode_lossy(view)
-    None => ""
+fn read_name_until(
+  data : Bytes,
+  cursor : Ref[Int32],
+  end : Int32,
+) -> String raise @cli.CliError {
+  let len = read_leb_until(data, cursor, end)
+  let start = cursor.val
+  guard end <= data.length() && len <= end - start else {
+    raise @cli.CliError::Invalid("name length overruns its payload")
+  }
+  cursor.val = start + len
+  @utf8.decode(data.exact_view(start~, end=cursor.val)) catch {
+    _ => raise @cli.CliError::Invalid("name is not valid UTF-8")
   }
 }
 
@@ -124,11 +125,12 @@ pub fn section_bytes(data : Bytes, section : Section) -> Bytes {
 ///|
 /// 拼接 header 与给定 section 的原始字节，得到新的模块。
 pub fn rebuild(header : Bytes, pieces : Array[Bytes]) -> Bytes {
-  let mut out = header
+  let out = @buffer.Buffer()
+  out.write_bytesview(header[:])
   for piece in pieces {
-    out = out + piece
+    out.write_bytesview(piece[:])
   }
-  out
+  out.to_bytes()
 }
 
 ///|

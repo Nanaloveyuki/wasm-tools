@@ -88,3 +88,24 @@ test "release ABI rejects a breaking outcome with exit code zero" {
   )
   inspect(release_abi_report_is_compatible(report), content="false")
 }
+
+///|
+test "release ABI rejects missing protocol fields and rounded schema versions" {
+  let report = release_abi_test_report(
+    2,
+    "compatible",
+    "abc",
+    Some("compatible"),
+  )
+  guard report is Object(fields) else { fail("expected an ABI report object") }
+  for field in fields.keys() {
+    let incomplete = fields.copy()
+    incomplete.remove(field)
+    assert_true(
+      validate_release_abi_report(Json::object(incomplete), "abc", 0) is Some(_),
+    )
+  }
+  let rounded = @json.parse("2.0000000000000001", preserve_number_repr=true)
+  fields.set("schemaVersion", rounded)
+  assert_true(validate_release_abi_report(report, "abc", 0) is Some(_))
+}

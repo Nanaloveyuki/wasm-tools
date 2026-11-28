@@ -10,7 +10,7 @@ pub fn validate_component(data : Bytes) -> Unit raise @cli.CliError {
 }
 
 ///|
-/// 组件可能包含多个 core module，输出时用 `; ---- name ----` 分隔。
+/// 组件打印结果保留文档名，分隔行使用 WAT 注释。
 pub fn component_to_wat(data : Bytes) -> String raise @cli.CliError {
   match @decompiler.print_binary(data) {
     Ok(documents) => {
@@ -19,7 +19,7 @@ pub fn component_to_wat(data : Bytes) -> String raise @cli.CliError {
         if !out.is_empty() {
           out.write_string("\n")
         }
-        out.write_string("; ---- " + document.name + " ----\n")
+        out.write_string(";; ---- " + document.name + " ----\n")
         out.write_string(document.text)
         if !document.text.has_suffix("\n") {
           out.write_string("\n")

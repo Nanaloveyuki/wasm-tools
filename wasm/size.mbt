@@ -36,34 +36,6 @@ fn percent(part : Int32, total : Int32) -> Double {
 }
 
 ///|
-/// 解析 code section 的每个 body 长度（字节数在 size 前缀之后）。
-fn code_body_sizes(
-  data : Bytes,
-  sections : Array[Section],
-) -> Array[Int32] raise @cli.CliError {
-  for section in sections {
-    if section.id != 10 {
-      continue
-    }
-    let cursor = Ref(section.payload)
-    let end = section.payload + section.size
-    let count = read_leb(data, cursor)
-    let sizes : Array[Int32] = []
-    for _ in 0..<count {
-      let size = read_leb(data, cursor)
-      let body_start = cursor.val
-      if body_start + size > end {
-        raise @cli.CliError::Invalid("function body overruns the code section")
-      }
-      sizes.push(size)
-      cursor.val = body_start + size
-    }
-    return sizes
-  }
-  []
-}
-
-///|
 /// 生成报告。`top` 只影响文本输出的截断，JSON 总是包含全部函数。
 pub fn size_report(
   data : Bytes,
@@ -94,6 +66,7 @@ pub fn size_report(
       indirect_calls: 0,
     }
   }
+  let layouts = find_code_layouts(data, sections)
   let parsed = @core_parser.parse_module(data) catch {
     e => raise @cli.CliError::Invalid("parse: " + e.to_string())
   }
@@ -104,14 +77,13 @@ pub fn size_report(
       _ => ()
     }
   }
-  let body_sizes = code_body_sizes(data, sections)
   let functions : Array[FunctionSize] = []
-  for index, bytes in body_sizes {
+  for index, layout in layouts {
     let absolute = imported + index
     functions.push({
       index: absolute,
       name: parsed.func_names.get(absolute).unwrap_or(""),
-      bytes,
+      bytes: layout.size,
     })
   }
   let mut edges = 0
@@ -271,24 +243,24 @@ pub struct SizeDiff {
 }
 
 ///|
-/// 函数按 name 匹配；没有名字时退回 `#index`。索引在两次构建间会漂移，
-/// 名字匹配能避免把一次重排误报成大量增删。
-fn function_key(function_ : FunctionSize) -> String {
-  if function_.name.is_empty() {
-    "#" + function_.index.to_string()
-  } else {
-    function_.name
-  }
-}
-
-///|
 fn function_map(report : SizeReport) -> Map[String, FunctionSize] {
   let map : Map[String, FunctionSize] = Map([])
+  let occurrences : Map[String, Int32] = Map([])
   for function_ in report.functions {
-    let key = function_key(function_)
-    if !map.contains(key) {
-      map.set(key, function_)
+    let name = function_.name
+    let key = if name.is_empty() {
+      "#\{function_.index}"
+    } else {
+      // Pair repeated names by their order in the function index space.
+      let occurrence = occurrences.get(name).unwrap_or(0) + 1
+      occurrences[name] = occurrence
+      if occurrence == 1 && !name.has_prefix("#") {
+        name
+      } else {
+        "#name:\{occurrence}:\{name}"
+      }
     }
+    map[key] = function_
   }
   map
 }
@@ -335,7 +307,7 @@ pub fn size_diff(current : SizeReport, baseline : SizeReport) -> SizeDiff {
     let left_delta = delta_of(left)
     let right_delta = delta_of(right)
     if left_delta != right_delta {
-      right_delta - left_delta
+      right_delta.compare(left_delta)
     } else {
       left.key.compare(right.key)
     }
@@ -387,7 +359,7 @@ pub fn diff_text(diff : SizeDiff, top : Int32) -> String {
   )
   for i = 0; i < shown; i = i + 1 {
     let change = diff.changes[i]
-    let name = if change.name.is_empty() { change.key } else { change.name }
+    let name = change.key
     out.write_string(
       "  " +
       pad_right(change.status, 8) +
@@ -452,7 +424,7 @@ fn signed(value : Int32) -> String {
 
 ///|
 pub struct FunctionLayout {
-  /// 函数体第一条指令的绝对文件 offset（跳过 size 前缀与 locals 声明）
+  /// 函数体的绝对文件 offset（跳过 size 前缀，包含 locals 声明）
   start : Int32
   /// 函数体字节数（locals + 表达式）
   size : Int32
@@ -477,24 +449,9 @@ pub fn function_layout(
       }
     None => ()
   }
-  for section in sections {
-    if section.id != 10 {
-      continue
-    }
-    let cursor = Ref(section.payload)
-    let end = section.payload + section.size
-    let count = read_leb(data, cursor) catch { _ => return layout }
-    for index in 0..<count {
-      let size = read_leb(data, cursor) catch { _ => return layout }
-      let body_start = cursor.val
-      if body_start + size > end {
-        return layout
-      }
-      // body 的前若干个字节是 locals 声明；wasm 栈回溯的 offset 相对 body 起点，
-      // 因此这里保留 body 起点，不尝试跳过 locals。
-      layout.set(imported + index, { start: body_start, size, })
-      cursor.val = body_start + size
-    }
+  let bodies = find_code_layouts(data, sections) catch { _ => return layout }
+  for index, body in bodies {
+    layout[imported + index] = body
   }
   layout
 }

@@ -1,4 +1,5 @@
 import {
+  "Nanaloveyuki/wasm-tools/internal/json_number",
   "moonbitlang/core/json",
   "moonbitlang/core/string" @str,
 }

@@ -18,19 +18,16 @@ pub async fn cmd_size(args : Array[String]) -> Int32 raise @cli.CliError {
   let data = @cli.read_input(options.input)
   let file = options.input.unwrap_or("<stdin>")
   let report = @wasm.size_report(data, file)
-  if diff_values.length() > 0 {
+  let text = if diff_values.length() > 0 {
     let baseline_data = @cli.read_input(Some(diff_values[0]))
     let baseline = @wasm.size_report(baseline_data, diff_values[0])
     let diff = @wasm.size_diff(report, baseline)
-    let text = if options.json {
+    if options.json {
       @wasm.diff_json(diff)
     } else {
       @wasm.diff_text(diff, top)
     }
-    @cli.write_output(options.output, @utf8.encode(text))
-    return 0
-  }
-  let text = if options.json {
+  } else if options.json {
     @wasm.size_json(report)
   } else {
     @wasm.size_text(report, top)
@@ -41,7 +38,7 @@ pub async fn cmd_size(args : Array[String]) -> Int32 raise @cli.CliError {
   }
   match budget {
     Some(limit) =>
-      if report.total > limit {
+      if report.total.to_int64() > limit {
         let message = @cli.TOOL_NAME +
           ": size " +
           report.total.to_string() +
@@ -74,36 +71,39 @@ fn parse_top(values : Array[String]) -> Int32 raise @cli.CliError {
 
 ///|
 /// 只接受 `123`、`123B`、`12KB`、`3MB`；1024 进制，避免和磁盘厂商的 1000 进制混淆。
-fn parse_budget(values : Array[String]) -> Int32? raise @cli.CliError {
+fn parse_budget(values : Array[String]) -> Int64? raise @cli.CliError {
   if values.length() == 0 {
     return None
   }
   let text = values[0].trim().to_owned().to_upper()
   let mut number_part = text
-  let mut multiplier = 1
+  let mut multiplier = 1L
   if text.has_suffix("KB") {
     number_part = text
       .get_view(start=0, end=text.length() - 2)
       .unwrap_or("")
       .to_owned()
-    multiplier = 1024
+    multiplier = 1024L
   } else if text.has_suffix("MB") {
     number_part = text
       .get_view(start=0, end=text.length() - 2)
       .unwrap_or("")
       .to_owned()
-    multiplier = 1024 * 1024
+    multiplier = 1024L * 1024L
   } else if text.has_suffix("B") {
     number_part = text
       .get_view(start=0, end=text.length() - 1)
       .unwrap_or("")
       .to_owned()
   }
-  let base = @str.parse_int(number_part) catch {
+  let base = @str.parse_int64(number_part) catch {
     _ => raise @cli.CliError::Usage("--budget expects a size like 200KB")
   }
-  if base < 0 {
+  if base < 0L {
     raise @cli.CliError::Usage("--budget must not be negative")
+  }
+  if base > 9223372036854775807L / multiplier {
+    raise @cli.CliError::Usage("--budget exceeds the supported byte range")
   }
   Some(base * multiplier)
 }

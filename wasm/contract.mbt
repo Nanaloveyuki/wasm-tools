@@ -3,13 +3,8 @@ pub fn contract_snapshot(
   data : Bytes,
 ) -> @contract.Snapshot raise @cli.CliError {
   reject_component(data, "contract")
-  let parsed_module = @core_parser.parse_module(data) catch {
-    e => raise @cli.CliError::Invalid("parse: " + e.to_string())
-  }
-  @core_validator.validate_module(parsed_module) catch {
-    e =>
-      raise @cli.CliError::Invalid(@core_validator.format_validation_error(e))
-  }
+  let parsed_module = parse_core_framed(data, scan_sections(data))
+  validate_parsed_core(parsed_module)
   let imports : Array[@contract.Entry] = []
   for imported in parsed_module.imports {
     imports.push(import_entry(parsed_module, imported))

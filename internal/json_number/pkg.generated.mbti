@@ -1,0 +1,19 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "Nanaloveyuki/wasm-tools/internal/json_number"
+
+import {
+  "moonbitlang/core/json",
+}
+
+// Values
+pub fn equal(@json.Json, @json.Json) -> Bool
+
+pub fn nonnegative_int32(@json.Json) -> Int32?
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+
+// Traits

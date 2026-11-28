@@ -32,7 +32,7 @@ expect() {
   echo "ok   $name"
 }
 
-expect version 0 'wsm 0.6.0' "$wsm" --version
+expect version 0 'wsm 0.6.1' "$wsm" --version
 expect help 0 'Usage: wsm <COMMAND>' "$wsm" --help
 
 "$wsm" parse fixtures/hello.wat -o "$tmp/hello.wasm"
@@ -43,6 +43,10 @@ expect contract-check 0 'provided: compatible' "$wsm" contract check --baseline 
 expect contract-check-json 0 '"status":"compatible"' "$wsm" contract check --baseline "$tmp/hello.abi.json" "$tmp/hello.wasm" --direction both --json
 "$wsm" contract wit snapshot --world cli "$root/tests/fixtures/contract.wit" -o "$tmp/contract.wit.json"
 expect contract-wit-snapshot 0 '"world":"cli"' cat "$tmp/contract.wit.json"
+sed 's/"format_version":2/"format_version":1/' "$tmp/contract.wit.json" > "$tmp/legacy.wit.json"
+expect contract-wit-legacy 1 'Regenerate it from the original WIT source' "$wsm" contract wit check --world cli --baseline "$tmp/legacy.wit.json" "$root/tests/fixtures/contract.wit"
+sed 's/"format_version":2/"format_version":2.0000000000000000001/' "$tmp/contract.wit.json" > "$tmp/rounded.wit.json"
+expect contract-wit-rounded-version 2 'unsupported WIT snapshot format version' "$wsm" contract wit check --world cli --baseline "$tmp/rounded.wit.json" "$root/tests/fixtures/contract.wit"
 expect contract-wit-compatible 0 'compatible' "$wsm" contract wit check --world cli --baseline "$tmp/contract.wit.json" "$root/tests/fixtures/contract-compatible.wit"
 expect contract-wit-breaking 1 'breaking' "$wsm" contract wit check --world cli --baseline "$tmp/contract.wit.json" "$root/tests/fixtures/contract-breaking.wit"
 "$wsm" parse fixtures/contract-breaking.wat -o "$tmp/contract-breaking.wasm"
@@ -56,20 +60,34 @@ expect size-json 0 '"functions"' "$wsm" size --json "$tmp/hello.wasm"
 expect size-budget-pass 0 'total 74 B' "$wsm" size --budget 1KB "$tmp/hello.wasm"
 expect size-budget-fail 1 'exceeds budget' "$wsm" size --budget 10B "$tmp/hello.wasm"
 expect size-diff 0 'no function size changes' "$wsm" size --diff "$tmp/hello.wasm" "$tmp/hello.wasm"
+expect size-diff-budget-fail 1 'exceeds budget 0 B' "$wsm" size --diff "$tmp/hello.wasm" --budget 0 "$tmp/hello.wasm"
+expect size-diff-large-budget 0 'no function size changes' "$wsm" size --diff "$tmp/hello.wasm" --budget 2048MB "$tmp/hello.wasm"
+expect size-budget-overflow 2 'exceeds the supported byte range' "$wsm" size --budget 9223372036854775807MB "$tmp/hello.wasm"
 expect opt 0 'valid core module' sh -c "'$wsm' opt '$tmp/hello.wasm' -o '$tmp/hello.opt.wasm' && '$wsm' validate '$tmp/hello.opt.wasm'"
 expect symbolize 0 'name add' "$wsm" symbolize "$tmp/hello.wasm" 'wasm-function[0]:0x2d'
+expect symbolize-overflow 2 'hex address is out of range' "$wsm" symbolize "$tmp/hello.wasm" 0x100000000
+test -z "$("$wsm" symbolize --json "$tmp/hello.wasm" 0x2d -o "$tmp/symbol.json")"
+expect symbolize-output 0 '"name":"add"' cat "$tmp/symbol.json"
 
 expect metadata-core 0 'custom sections: 1' "$wsm" metadata "$tmp/hello.wasm"
 
 "$wsm" parse fixtures/component.wat -o "$tmp/component.wasm"
 expect validate-component 0 'valid component (102 bytes)' "$wsm" validate "$tmp/component.wasm"
-expect print-component 0 '; ---- root ----' "$wsm" print "$tmp/component.wasm"
+expect print-component 0 ';; ---- root ----' "$wsm" print "$tmp/component.wasm"
+printf '%s\n' '(component)' | "$wsm" parse - -o "$tmp/empty-component.wasm"
+for component in "$tmp/component.wasm" "$tmp/empty-component.wasm"; do
+  "$wsm" print "$component" -o "$tmp/printed-component.wat"
+  "$wsm" parse "$tmp/printed-component.wat" -o "$tmp/roundtrip.wasm"
+  expect component-roundtrip 0 'valid component' "$wsm" validate "$tmp/roundtrip.wasm"
+  "$wsm" print "$tmp/roundtrip.wasm" -o "$tmp/roundtrip.wat"
+  cmp "$tmp/printed-component.wat" "$tmp/roundtrip.wat"
+done
 expect dump-component 0 'core-module' "$wsm" dump "$tmp/component.wasm"
 expect metadata-component 0 'component name' "$wsm" metadata "$tmp/component.wasm"
 expect size-component 0 'core-module' "$wsm" size "$tmp/component.wasm"
 
 expect bad-magic 1 'missing wasm magic header' "$wsm" validate fixtures/not-wasm.wasm
-expect truncated 1 'length out of bounds' "$wsm" validate fixtures/truncated.wasm
+expect truncated 1 'past end of input' "$wsm" validate fixtures/truncated.wasm
 expect missing-file 2 'no such file' "$wsm" validate missing.wasm
 expect unknown-option 2 'unknown option: --nope' "$wsm" validate --nope fixtures/hello.wat
 

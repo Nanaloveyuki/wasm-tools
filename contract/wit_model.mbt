@@ -1,5 +1,5 @@
 ///|
-pub const WIT_SNAPSHOT_FORMAT_VERSION : Int32 = 1
+pub const WIT_SNAPSHOT_FORMAT_VERSION : Int32 = 2
 
 ///|
 #derive(Eq)

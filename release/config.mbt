@@ -1,6 +1,10 @@
 ///|
 pub fn parse_config(text : String) -> Config raise ConfigError {
-  let root = @json.parse(text, reject_duplicate_keys=true) catch {
+  let root = @json.parse(
+    text,
+    reject_duplicate_keys=true,
+    preserve_number_repr=true,
+  ) catch {
     error => raise ConfigError::Invalid("invalid JSON: " + error.to_string())
   }
   let root = object_value(root, "config")
@@ -426,15 +430,14 @@ fn integer_field(
 ///|
 fn integer_value(value : Json, path : String) -> Int32 raise ConfigError {
   match value {
-    Json::Number(number, ..) => {
-      let integer = number.to_int()
-      if number < 0.0 || number > 2147483647.0 || integer.to_double() != number {
-        raise ConfigError::Invalid(
-          path + " must be a nonnegative 32-bit integer",
-        )
+    Json::Number(_) =>
+      match @json_number.nonnegative_int32(value) {
+        Some(integer) => integer
+        None =>
+          raise ConfigError::Invalid(
+            path + " must be a nonnegative 32-bit integer",
+          )
       }
-      integer
-    }
     _ => raise ConfigError::Invalid(path + " must be an integer")
   }
 }

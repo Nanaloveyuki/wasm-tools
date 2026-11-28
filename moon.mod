@@ -1,6 +1,6 @@
 name = "Nanaloveyuki/wasm-tools"
 
-version = "0.6.0"
+version = "0.6.1"
 
 readme = "README.md"
 

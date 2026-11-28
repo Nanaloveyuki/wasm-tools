@@ -49,7 +49,7 @@ async fn bundle_check_one_consumer(
     }
   }
 
-  let directory = @fs.tmpdir(prefix="wsm-bundle-consumer-") catch {
+  let directory = bundle_consumer_directory() catch {
     error =>
       raise @cli.CliError::Io(
         "cannot create consumer snapshot: " + error.to_string(),
@@ -144,7 +144,11 @@ async fn bundle_check_one_consumer(
         "Node.js consumer harness returned non-UTF-8 output",
       )
   }
-  let packet_json = @json.parse(output, reject_duplicate_keys=true) catch {
+  let packet_json = @json.parse(
+    output,
+    reject_duplicate_keys=true,
+    preserve_number_repr=true,
+  ) catch {
     error =>
       raise @cli.CliError::Io(
         "Node.js consumer harness returned invalid JSON: " + error.to_string(),
@@ -190,7 +194,8 @@ async fn bundle_check_one_consumer(
         packet.logs_truncated,
       )
     }
-    "completed" if packet.actual_present && packet.actual == consumer.expected =>
+    "completed" if packet.actual_present &&
+      @json_number.equal(packet.actual, consumer.expected) =>
       bundle_consumer_row(
         consumer,
         "passed",
@@ -225,6 +230,66 @@ async fn bundle_check_one_consumer(
         "Node.js consumer harness returned an invalid status packet",
       )
   }
+}
+
+///|
+async fn bundle_consumer_directory() -> String {
+  let temporary = @fs.tmpdir(prefix="wsm-bundle-consumer-")
+  errdefer {
+    let _ = @fs.remove(temporary) catch { _ => () }
+  }
+  let directory = @fs.realpath(temporary)
+  let clean = bundle_clean_node_parent(directory)
+  if clean == Some(directory) {
+    return directory
+  }
+  @fs.remove(temporary)
+  let basename = @path.Path(directory).basename().to_owned()
+  let locations = ["/tmp", "/var/tmp"]
+  let environment = @env.get_env_vars()
+  for key in ["LOCALAPPDATA", "SystemRoot"] {
+    if environment.get(key) is Some(base) && @path.Path(base).is_absolute() {
+      locations.push(release_path(base, "Temp"))
+    }
+  }
+  if clean is Some(base) {
+    locations.push(base)
+  }
+  for location in locations {
+    let base = @fs.realpath(location) catch { _ => continue }
+    if bundle_clean_node_parent(base) == Some(base) {
+      let isolated = release_path(base, basename)
+      @fs.mkdir(isolated, permission=0o700) catch {
+        _ => continue
+      }
+      return isolated
+    }
+  }
+  fail(
+    "no writable temporary directory is isolated from ancestor Node packages",
+  )
+}
+
+///|
+async fn bundle_clean_node_parent(directory : String) -> String? {
+  let mut ancestor = directory
+  let mut clean = directory
+  // Node searches ancestor node_modules and package.json even with NODE_PATH unset.
+  for ;; {
+    let parent = @path.Path(ancestor).dirname().to_string()
+    if @fs.exists(release_path(ancestor, "node_modules")) ||
+      @fs.exists(release_path(ancestor, "package.json")) {
+      if ancestor == parent {
+        return None
+      }
+      clean = parent
+    }
+    if ancestor == parent {
+      break
+    }
+    ancestor = parent
+  }
+  Some(clean)
 }
 
 ///|
@@ -368,7 +433,7 @@ fn bundle_consumer_launcher_script() -> String {
     #|try {
     #|  const config = JSON.parse(fs.readFileSync(configPath, "utf8"));
     #|  const timeout = Number(config.timeout_ms);
-    #|  const result = spawnSync(process.execPath, [runner, configPath], {
+    #|  const result = spawnSync(process.execPath, ["--no-global-search-paths", runner, configPath], {
     #|    cwd: config.snapshot_root,
     #|    env: process.env,
     #|    shell: false,

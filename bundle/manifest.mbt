@@ -1,6 +1,10 @@
 ///|
 pub fn parse_manifest(text : String) -> Manifest raise ManifestError {
-  let root = @json.parse(text, reject_duplicate_keys=true) catch {
+  let root = @json.parse(
+    text,
+    reject_duplicate_keys=true,
+    preserve_number_repr=true,
+  ) catch {
     error =>
       raise ManifestError::ManifestError("invalid JSON: " + error.to_string())
   }
@@ -344,7 +348,10 @@ fn windows_numbered_device(name : String, prefix : String) -> Bool {
     return false
   }
   let digit = suffix[0]
-  digit >= '1' && digit <= '9'
+  (digit >= '1' && digit <= '9') ||
+  digit == '¹' ||
+  digit == '²' ||
+  digit == '³'
 }
 
 ///|
@@ -457,15 +464,14 @@ fn array_field(
 ///|
 fn integer_value(value : Json, path : String) -> Int32 raise ManifestError {
   match value {
-    Json::Number(number, ..) => {
-      let integer = number.to_int()
-      if number < 0.0 || number > 2147483647.0 || integer.to_double() != number {
-        raise ManifestError::ManifestError(
-          path + " must be a nonnegative integer",
-        )
+    Json::Number(_) =>
+      match @json_number.nonnegative_int32(value) {
+        Some(integer) => integer
+        None =>
+          raise ManifestError::ManifestError(
+            path + " must be a nonnegative integer",
+          )
       }
-      integer
-    }
     _ => raise ManifestError::ManifestError(path + " must be an integer")
   }
 }

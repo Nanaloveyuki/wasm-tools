@@ -1,14 +1,9 @@
 ///|
 pub fn release_facts(data : Bytes) -> @release.Facts raise @cli.CliError {
   reject_component(data, "release")
-  let parsed = @core_parser.parse_module(data) catch {
-    e => raise @cli.CliError::Invalid("parse: " + e.to_string())
-  }
-  @core_validator.validate_module(parsed) catch {
-    e =>
-      raise @cli.CliError::Invalid(@core_validator.format_validation_error(e))
-  }
   let sections = scan_sections(data)
+  let parsed = parse_core_framed(data, sections)
+  validate_parsed_core(parsed)
   let metrics : Array[@release.SectionMetric] = []
   let custom_sections : Array[String] = []
   for section in sections {

@@ -202,6 +202,40 @@ test "WIT adapter includes unstable features but marks them unknown" {
     world_item.imports[0].signature.has_prefix("unknown:"),
     content="true",
   )
+  let empty = build_test_wit_snapshot("package demo:calc; world cli {}")
+  assert_true(
+    @contract.compare_wit_snapshots(empty, world_item).status ==
+    @contract.Unknown,
+  )
+  assert_true(
+    @contract.compare_wit_snapshots(world_item, empty).status ==
+    @contract.Unknown,
+  )
+}
+
+///|
+test "law: WIT functions retain parameter names in their contracts" {
+  @quickcheck.check(
+    (parameters : Array[Bool]) => {
+      let args : Array[String] = ["first: u32"]
+      for i, flag in parameters {
+        let ty = if flag { "u32" } else { "string" }
+        args.push("arg-\{i}: \{ty}")
+      }
+      let source = "package demo:calc; world cli { import run: func(" +
+        args.join(", ") +
+        "); }"
+      let baseline = build_test_wit_snapshot(source)
+      let renamed = build_test_wit_snapshot(
+        source.replace(old="first:", new="renamed:"),
+      )
+      @contract.compare_wit_snapshots(baseline, baseline).status ==
+      @contract.Compatible &&
+      @contract.compare_wit_snapshots(baseline, renamed).status ==
+      @contract.Breaking
+    },
+    seed=20261128,
+  )
 }
 
 ///|

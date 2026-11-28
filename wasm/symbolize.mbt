@@ -67,6 +67,9 @@ fn parse_hex(text : String) -> Int32 raise @cli.CliError {
     } else {
       raise @cli.CliError::Usage("not a hex address: " + text)
     }
+    if value > (2147483647 - digit) / 16 {
+      raise @cli.CliError::Usage("hex address is out of range: " + text)
+    }
     value = value * 16 + digit
     seen = true
   }

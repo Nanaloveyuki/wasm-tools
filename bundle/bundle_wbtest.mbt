@@ -44,7 +44,7 @@ test "manifest rejects unsafe paths and case-insensitive prefix conflicts" {
   for
     path in [
       "/rooted", "../escape", "dir/./file", "dir//file", "C:/app.js", "folder\\file",
-      "CON.txt", "a/b.", "a?b",
+      "CON.txt", "COM¹.txt", "sub/LPT².dat", "com³", "a/b.", "a?b",
     ] {
     let json = "{\"format_version\":1,\"files\":[{\"path\":\"" + path + "\"}]}"
     assert_manifest_error(json, "path")
@@ -57,6 +57,18 @@ test "manifest rejects unsafe paths and case-insensitive prefix conflicts" {
     "{\"format_version\":1,\"files\":[{\"path\":\"assets\"},{\"path\":\"assets/icon.png\"}]}",
     "prefix conflict",
   )
+}
+
+///|
+test "consumer timeout is an exact integer" {
+  let text =
+    #|{"format_version":1,"files":[{"path":"entry.mjs"}],"consumers":[{"name":"run","entry":"entry.mjs","export":"run","expected":null,"timeout_ms":TIMEOUT}]}
+  assert_manifest_error(
+    text.replace(old="TIMEOUT", new="1000.00000000000000001"),
+    "must be a nonnegative integer",
+  )
+  let manifest = parse_manifest(text.replace(old="TIMEOUT", new="1.000e+3"))
+  assert_eq(manifest.consumers[0].timeout_ms, 1000)
 }
 
 ///|

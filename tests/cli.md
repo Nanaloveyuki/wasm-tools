@@ -7,7 +7,7 @@ Run from `tests/` after `moon build --target wasm`. Each `$` line is one command
 
 ```console
 $ ../run.sh --version
-wsm 0.6.0
+wsm 0.6.1
 
 $ ../run.sh --help
 wsm - WebAssembly release checks and binary tools
@@ -45,7 +45,7 @@ $ ../run.sh validate component.wasm
 valid component (102 bytes)
 
 $ ../run.sh print component.wasm
-; ---- root ----
+;; ---- root ----
 (component
   ...
 ```
@@ -58,7 +58,7 @@ wsm: missing wasm magic header
 [1]
 
 $ ../run.sh validate fixtures/truncated.wasm
-wsm: parse: length out of bounds
+wsm: section 1 at 8 claims 127 bytes, past end of input
 [1]
 
 $ ../run.sh validate missing.wasm
