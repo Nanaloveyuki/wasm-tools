@@ -48,7 +48,7 @@ npm 归档、gzip/Brotli 副本及消费检查需要 Node.js 20 或更新版本�
 ```sh
 wsm bundle check wasm-bundle.json -o report.json --summary report.md
 wsm bundle check wasm-bundle.json --strict-files
-wsm bundle check wasm-bundle.json --npm-archive ./example-1.0.0.tgz --strict-files
+wsm bundle check wasm-bundle.json --npm-archive ./example-1.0.0.tgz
 ```
 
 - `root` 相对于清单所在目录，默认是 `.`，也接受绝对路径。`files[].path` 是以 `/` 分隔的相对路径。每包最多声明 256 个文件，声明文件合计上限 64 MiB。声明路径须使用普通文件，且不含符号链接。
@@ -86,7 +86,7 @@ wsm bundle check wasm-bundle.json --npm-archive ./example-1.0.0.tgz --strict-fil
 wsm release check release.json -o report.json --summary report.md
 ```
 
-- 增长预算使用 `baseline` 指向的上一版最终 WASM。预算等于阈值时通过；段预算包含段头，同名段合计。
+- 增长预算使用 `baseline` 指向的上一版最终 WASM。预算等于阈值时通过。段预算包含段头，同名段合计。
 - `allowed_imports` 按 `module` 和 `name` 精确匹配。省略或填写 `null` 表示允许任意导入，`[]` 禁止全部导入。custom section 按名称精确匹配。
 - 需要处理产物时，给对应的产物项加入 `"process": { "strip_custom_sections": ["name", ".debug_info"], "optimize": "-Oz" }`，再用 `wsm release prepare release.json --out-dir dist-next -o report.json`。所有产物通过后才会生成新目录，文件名为 `<id>.wasm`。可用 `--wasm-opt PATH` 指定优化器，支持 `-O1` 至 `-O4`、`-Os` 和 `-Oz`。
 
